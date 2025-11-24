@@ -46,7 +46,7 @@ class InceptionResnetFaceEmbedder(
         if (!isInitialized()) throw IllegalStateException("Model not initialized")
 
         val imgData = preProcess(data)
-        val inputShape = longArrayOf(DIM_BATCH_SIZE.toLong(), DIM_PIXEL_SIZE.toLong(), IMAGE_SIZE_X.toLong(), IMAGE_SIZE_Y.toLong())
+        val inputShape = longArrayOf(DIM_BATCH_SIZE.toLong(), DIM_PIXEL_SIZE.toLong(), IMAGE_SIZE_Y.toLong(), IMAGE_SIZE_X.toLong())
         val inputName = model.getInputNames()?.firstOrNull() ?: throw IllegalStateException("Model inputs not available")
         val output = model.run(mapOf(inputName to TensorData.FloatBufferTensor(imgData, inputShape)))
         (output.values.first() as Array<FloatArray>)[0]
