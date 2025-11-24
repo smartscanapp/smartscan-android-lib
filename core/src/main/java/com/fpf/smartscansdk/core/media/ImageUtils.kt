@@ -96,3 +96,26 @@ private fun computeIoU(boxA: FloatArray, boxB: FloatArray): Float {
     val unionArea = areaA + areaB - intersectionArea
     return if (unionArea <= 0f) 0f else intersectionArea / unionArea
 }
+
+fun drawBoxes(bitmap: Bitmap, boxes: List<FloatArray>, color: Int, margin: Int = 0, strokeWidth: Float = 2f): Bitmap {
+    val mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
+    val canvas = Canvas(mutableBitmap)
+
+    val paint = Paint().apply {
+        this.color = color
+        this.strokeWidth = strokeWidth
+        this.style = Paint.Style.STROKE
+    }
+
+    for (box in boxes) {
+        val x1 = max(0, box[0].toInt() -margin)
+        val y1 = max(0, box[1].toInt() -margin)
+        val x2 = min(mutableBitmap.width, box[2].toInt() + margin)
+        val y2 = min(mutableBitmap.height, box[3].toInt() + margin)
+
+        canvas.drawRect(x1.toFloat(), y1.toFloat(), x2.toFloat(), y2.toFloat(), paint)
+    }
+
+    return mutableBitmap
+}
+
