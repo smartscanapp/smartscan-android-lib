@@ -47,7 +47,7 @@ class FaceDetector(
 
     override suspend fun detect(data: Bitmap): Pair<List<Float>, List<FloatArray>> = withContext(Dispatchers.Default) {
         val startTime = System.currentTimeMillis()
-        val inputShape = longArrayOf(DIM_BATCH_SIZE.toLong(), DIM_PIXEL_SIZE.toLong(), IMAGE_SIZE_X.toLong(), IMAGE_SIZE_Y.toLong())
+        val inputShape = longArrayOf(DIM_BATCH_SIZE.toLong(), DIM_PIXEL_SIZE.toLong(), IMAGE_SIZE_Y.toLong(), IMAGE_SIZE_X.toLong())
         val imgData: FloatBuffer = preProcess(data)
         val inputName = model.getInputNames()?.firstOrNull() ?: throw IllegalStateException("Model inputs not available")
         val outputs = model.run(mapOf(inputName to TensorData.FloatBufferTensor(imgData, inputShape)))
