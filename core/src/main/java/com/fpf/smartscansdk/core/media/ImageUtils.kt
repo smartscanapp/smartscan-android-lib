@@ -48,6 +48,23 @@ fun getBitmapFromUri(context: Context, uri: Uri, maxSize: Int): Bitmap {
     }.copy(Bitmap.Config.ARGB_8888, true)
 }
 
+fun cropFaces(bitmap: Bitmap, boxes: List<FloatArray>): List<Bitmap> {
+    val faces = mutableListOf<Bitmap>()
+    for (box in boxes) {
+        val x1 = max(0, box[0].toInt())
+        val y1 = max(0, box[1].toInt())
+        val x2 = min(bitmap.width, box[2].toInt())
+        val y2 = min(bitmap.height, box[3].toInt())
+        val width = x2 - x1
+        val height = y2 - y1
+        if (width > 0 && height > 0) {
+            val faceBitmap = Bitmap.createBitmap(bitmap, x1, y1, width, height)
+            faces.add(faceBitmap)
+        }
+    }
+    return faces
+}
+
 
 fun nms(boxes: List<FloatArray>, scores: List<Float>, iouThreshold: Float): List<Int> {
     if (boxes.isEmpty()) return emptyList()
