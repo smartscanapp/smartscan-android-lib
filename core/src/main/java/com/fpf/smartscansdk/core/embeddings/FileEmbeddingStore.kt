@@ -1,7 +1,6 @@
 package com.fpf.smartscansdk.core.embeddings
 
 import android.util.Log
-import com.fpf.smartscansdk.core.data.Embedding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File

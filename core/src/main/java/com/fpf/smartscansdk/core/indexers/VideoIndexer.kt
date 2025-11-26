@@ -1,17 +1,16 @@
 package com.fpf.smartscansdk.core.indexers
 
-import android.app.Application
 import android.content.ContentUris
 import android.content.Context
 import android.provider.MediaStore
-import com.fpf.smartscansdk.core.data.Embedding
-import com.fpf.smartscansdk.core.data.ProcessOptions
+import com.fpf.smartscansdk.core.embeddings.Embedding
 import com.fpf.smartscansdk.core.embeddings.IEmbeddingStore
 import com.fpf.smartscansdk.core.embeddings.ImageEmbeddingProvider
 import com.fpf.smartscansdk.core.embeddings.generatePrototypeEmbedding
 import com.fpf.smartscansdk.core.processors.BatchProcessor
 import com.fpf.smartscansdk.core.media.extractFramesFromVideo
 import com.fpf.smartscansdk.core.processors.IProcessorListener
+import com.fpf.smartscansdk.core.processors.MemoryOptions
 
 // ** Design Constraint**: For on-device vector search, the full index needs to be loaded in-memory (or make an Android native VectorDB)
 // File-based EmbeddingStore is used over a Room version due to significant faster index loading
@@ -26,9 +25,10 @@ class VideoIndexer(
     private val height: Int,
     context: Context,
     listener: IProcessorListener<Long, Embedding>? = null,
-    options: ProcessOptions = ProcessOptions(),
+    batchSize: Int = 10,
+    memoryOptions: MemoryOptions = MemoryOptions(),
     private val store: IEmbeddingStore,
-    ): BatchProcessor<Long, Embedding>(context, listener, options){
+    ): BatchProcessor<Long, Embedding>(context, listener, memoryOptions, batchSize){
 
     companion object {
         const val INDEX_FILENAME = "video_index.bin"

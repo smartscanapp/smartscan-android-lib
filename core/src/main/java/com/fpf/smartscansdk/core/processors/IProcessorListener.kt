@@ -1,7 +1,6 @@
 package com.fpf.smartscansdk.core.processors
 
 import android.content.Context
-import com.fpf.smartscansdk.core.data.Metrics
 
 interface IProcessorListener<Input, Output> {
     suspend fun onActive(context: Context) = Unit
