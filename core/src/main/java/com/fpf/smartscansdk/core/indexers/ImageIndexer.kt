@@ -3,13 +3,13 @@ package com.fpf.smartscansdk.core.indexers
 import android.content.ContentUris
 import android.content.Context
 import android.provider.MediaStore
-import com.fpf.smartscansdk.core.data.Embedding
-import com.fpf.smartscansdk.core.data.ProcessOptions
+import com.fpf.smartscansdk.core.embeddings.Embedding
 import com.fpf.smartscansdk.core.embeddings.IEmbeddingStore
 import com.fpf.smartscansdk.core.embeddings.ImageEmbeddingProvider
 import com.fpf.smartscansdk.core.media.getBitmapFromUri
 import com.fpf.smartscansdk.core.processors.BatchProcessor
 import com.fpf.smartscansdk.core.processors.IProcessorListener
+import com.fpf.smartscansdk.core.processors.MemoryOptions
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
@@ -24,8 +24,9 @@ class ImageIndexer(
     private val maxImageSize: Int = 225,
     context: Context,
     listener: IProcessorListener<Long, Embedding>? = null,
-    options: ProcessOptions = ProcessOptions(),
-    ): BatchProcessor<Long, Embedding>(context, listener, options){
+    memoryOptions: MemoryOptions = MemoryOptions(),
+    batchSize: Int = 10,
+    ): BatchProcessor<Long, Embedding>(context, listener, memoryOptions, batchSize){
 
     companion object {
         const val INDEX_FILENAME = "image_index.bin"
