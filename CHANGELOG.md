@@ -1,4 +1,15 @@
-### v1.1.1 - 04/11/2025
+## v1.2.0 - 26/11/2025
+
+### Added
+* Added new models: DinoV2 and InceptionResnet
+
+### Removed
+* Removed `FileEmbeddingRetriever` and and its query methods to `FileEmbeddingStore` (breaking)
+* Removed `iscached` from `FileEmbeddingStore` (breaking)
+* Removed `ProcessOptions` (breaking)
+* Removed data packages for both core and ml modules and moved the files into relevant packages
+
+## v1.1.1 - 04/11/2025
 
 ### Added
 * Added new text embedding provider, Mini-LM
@@ -13,7 +24,7 @@
   - Moved to core/processor: `IProcessorListener`
   - Moved to ml/models: `IModelLoader`
 
-### v1.1.0 - 30/10/2025
+## v1.1.0 - 30/10/2025
 
 ### Changed
 * Project structure refactored from **core + extensions** to **core + ml**.
@@ -26,7 +37,7 @@
 * `ClipImageEmbedder` and `ClipTextEmbedder` now accept context instead of resources
 * `BatchProcessor` now accepts a `Context` (uses `applicationContext` internally).
 
-### Fixed 
+### Fixed
 
 * fix `ClipTextEmbedder`: prevent IllegalCapacity in embed
 
@@ -54,8 +65,8 @@ If you are upgrading from ≤1.0.4, update imports and Gradle dependencies.
 
 * `FileEmbeddingRetriever` now supports batch retrieval via `start` and `end` indices with a new `query` overload.
 * `FileEmbeddingStore` `getAll` method renamed to `get`, and two new overloads added:
-    * `get(ids: List<Long>)` – fetch multiple embeddings by ID.
-    * `get(id: Long)` – fetch a single embedding by ID.
+  * `get(ids: List<Long>)` – fetch multiple embeddings by ID.
+  * `get(id: Long)` – fetch a single embedding by ID.
 * Tests added to verify correct behavior and boundary handling for the new query overload.
 
 ## v1.0.2 – 05/10/2025
@@ -72,7 +83,7 @@ If you are upgrading from ≤1.0.4, update imports and Gradle dependencies.
 ## v1.0.1 – 26/09/2025
 
 ### Changed
-* IEmbeddingStore interface - getAll, isCached, exist 
+* IEmbeddingStore interface - getAll, isCached, exist
 * Use linked hashmap for cache instead of list
 * Pass store to Indexers
 * Update tests
