@@ -1,7 +1,6 @@
 package com.fpf.smartscansdk.core.embeddings
 
 import android.util.Log
-import com.fpf.smartscansdk.core.data.Embedding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -12,6 +11,7 @@ import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
+import kotlin.collections.map
 
 class FileEmbeddingStore(
     private val file: File,
@@ -25,12 +25,9 @@ class FileEmbeddingStore(
     }
 
     private var cache: LinkedHashMap<Long, Embedding>? = null
+    private var cachedIds: List<Long>? = null
 
     override val exists: Boolean get() = file.exists()
-
-    override val isCached: Boolean
-        get() = cache != null
-
 
     // prevent OOM in FileEmbeddingStore.save() by batching writes
     private suspend fun save(embeddingsList: List<Embedding>): Unit = withContext(Dispatchers.IO) {
@@ -97,6 +94,19 @@ class FileEmbeddingStore(
             if (useCache) cache = map
             map.values.toList()
         }
+    }
+
+    suspend fun get(ids: List<Long>): List<Embedding> = withContext(Dispatchers.IO) {
+        val map = cache ?: run {
+            val all = get()
+            LinkedHashMap(all.associateBy { it.id })
+        }
+        val embeddings = mutableListOf<Embedding>()
+
+        for (id in ids) {
+            map.get(id)?.let { embeddings.add(it) }
+        }
+        embeddings
     }
 
     override suspend fun add(newEmbeddings: List<Embedding>): Unit = withContext(Dispatchers.IO) {
@@ -185,29 +195,42 @@ class FileEmbeddingStore(
         }
     }
 
-    suspend fun get(ids: List<Long>): List<Embedding> = withContext(Dispatchers.IO) {
-        val map = cache ?: run {
-            val all = get()
-            LinkedHashMap(all.associateBy { it.id })
-        }
-        val embeddings = mutableListOf<Embedding>()
-
-        for (id in ids) {
-            map.get(id)?.let { embeddings.add(it) }
-        }
-        embeddings
-    }
-
-    suspend fun get(id: Long): Embedding? = withContext(Dispatchers.IO) {
-        val map = cache ?: run {
-            val all = get()
-            LinkedHashMap(all.associateBy { it.id })
-        }
-        map.get(id)
-    }
 
     override fun clear(){
         cache = null
+    }
+
+
+    override suspend fun query(embedding: FloatArray, topK: Int, threshold: Float): List<Embedding> {
+
+        cachedIds = null // clear on new search
+
+        val storedEmbeddings = get()
+
+        if (storedEmbeddings.isEmpty()) return emptyList()
+
+        val similarities = getSimilarities(embedding, storedEmbeddings.map { it.embeddings })
+        val resultIndices = getTopN(similarities, topK, threshold)
+
+        if (resultIndices.isEmpty()) return emptyList()
+
+        val idsToCache = mutableListOf<Long>()
+        val results = resultIndices.map{idx ->
+            idsToCache.add( storedEmbeddings[idx].id)
+            storedEmbeddings[idx]
+        }
+        cachedIds = idsToCache
+        return results
+    }
+
+    suspend fun query(start: Int, end: Int): List<Embedding> {
+        val ids = cachedIds ?: return emptyList()
+        val s = start.coerceAtLeast(0)
+        val e = end.coerceAtMost(ids.size)
+        if (s >= e) return emptyList()
+
+        val batch = get(ids.subList(s, e))
+        return batch
     }
 
 }

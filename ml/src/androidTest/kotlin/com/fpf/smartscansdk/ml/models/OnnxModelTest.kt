@@ -4,7 +4,7 @@ package com.fpf.smartscansdk.ml.models
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import ai.onnxruntime.*
-import com.fpf.smartscansdk.ml.data.TensorData
+import com.fpf.smartscansdk.ml.models.loaders.IModelLoader
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.every
