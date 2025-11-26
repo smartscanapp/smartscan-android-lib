@@ -1,5 +1,4 @@
-package com.fpf.smartscansdk.core.data
-
+package com.fpf.smartscansdk.core.embeddings
 
 // `Embedding` represents a raw vector for a single media item, with `id` corresponding to its `MediaStoreId`.
 data class Embedding(
@@ -14,7 +13,3 @@ data class PrototypeEmbedding(
     val date: Long,
     val embeddings: FloatArray
 )
-
-
-
-
