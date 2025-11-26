@@ -5,11 +5,11 @@ import android.graphics.Bitmap
 import com.fpf.smartscansdk.core.embeddings.ImageEmbeddingProvider
 import com.fpf.smartscansdk.core.media.centerCrop
 import com.fpf.smartscansdk.core.processors.BatchProcessor
-import com.fpf.smartscansdk.ml.data.FilePath
-import com.fpf.smartscansdk.ml.data.ModelSource
-import com.fpf.smartscansdk.ml.data.ResourceId
-import com.fpf.smartscansdk.ml.data.TensorData
+import com.fpf.smartscansdk.ml.models.TensorData
 import com.fpf.smartscansdk.ml.models.loaders.FileOnnxLoader
+import com.fpf.smartscansdk.ml.models.loaders.FilePath
+import com.fpf.smartscansdk.ml.models.loaders.ModelSource
+import com.fpf.smartscansdk.ml.models.loaders.ResourceId
 import com.fpf.smartscansdk.ml.models.OnnxModel
 import com.fpf.smartscansdk.ml.models.loaders.ResourceOnnxLoader
 import kotlinx.coroutines.Dispatchers
