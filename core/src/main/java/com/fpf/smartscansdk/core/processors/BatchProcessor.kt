@@ -2,8 +2,6 @@ package com.fpf.smartscansdk.core.processors
 
 import android.content.Context
 import android.util.Log
-import com.fpf.smartscansdk.core.data.Metrics
-import com.fpf.smartscansdk.core.data.ProcessOptions
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -16,7 +14,8 @@ import java.util.concurrent.atomic.AtomicInteger
 abstract class BatchProcessor<Input, Output>(
     private val context: Context,
     protected val listener: IProcessorListener<Input, Output>? = null,
-    private val options: ProcessOptions = ProcessOptions(),
+    private val memoryOptions: MemoryOptions = MemoryOptions(),
+    val batchSize: Int = 10
 ) {
     companion object {
         const val TAG = "BatchProcessor"
@@ -35,11 +34,11 @@ abstract class BatchProcessor<Input, Output>(
                 return@withContext metrics
             }
 
-            val memoryUtils = MemoryUtils(context.applicationContext, options.memory)
+            val memoryUtils = Memory(context.applicationContext, memoryOptions)
 
             listener?.onActive(context.applicationContext)
 
-            for (batch in items.chunked(options.batchSize)) {
+            for (batch in items.chunked(batchSize)) {
                 val currentConcurrency = memoryUtils.calculateConcurrencyLevel()
                 val semaphore = Semaphore(currentConcurrency)
 

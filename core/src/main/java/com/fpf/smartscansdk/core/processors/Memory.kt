@@ -2,9 +2,14 @@ package com.fpf.smartscansdk.core.processors
 
 import android.app.ActivityManager
 import android.content.Context
-import com.fpf.smartscansdk.core.data.MemoryOptions
 
-class MemoryUtils(
+data class MemoryOptions(
+    val lowMemoryThreshold: Long = 800L * 1024 * 1024,
+    val highMemoryThreshold: Long = 1_600L * 1024 * 1024,
+    val minConcurrency: Int = 1,
+    val maxConcurrency: Int = 4
+)
+class Memory(
     private val context: Context,
     memoryOptions: MemoryOptions? = null
 ) {
