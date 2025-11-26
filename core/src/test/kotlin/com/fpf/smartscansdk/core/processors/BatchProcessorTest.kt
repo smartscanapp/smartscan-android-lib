@@ -2,8 +2,6 @@ package com.fpf.smartscansdk.core.processors
 
 import android.content.Context
 import android.util.Log
-import com.fpf.smartscansdk.core.data.Metrics
-import com.fpf.smartscansdk.core.data.ProcessOptions
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -41,8 +39,9 @@ class BatchProcessorTest {
         context: Context,
         listener: IProcessorListener<Int, Int>,
         private val failOn: Set<Int> = emptySet(),
-        options: ProcessOptions = ProcessOptions(batchSize = 2)
-    ) : BatchProcessor<Int, Int>(context, listener, options) {
+        memoryOptions: MemoryOptions = MemoryOptions(),
+        batchSize: Int = 2
+    ) : BatchProcessor<Int, Int>(context, listener, memoryOptions, batchSize) {
 
         override suspend fun onProcess(context: Context, item: Int): Int {
             if (item in failOn) throw RuntimeException("Failed item $item")

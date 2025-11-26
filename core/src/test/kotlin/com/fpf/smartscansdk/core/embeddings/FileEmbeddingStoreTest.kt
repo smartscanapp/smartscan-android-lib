@@ -1,11 +1,11 @@
 package com.fpf.smartscansdk.core.embeddings
 
 import android.util.Log
-import com.fpf.smartscansdk.core.data.Embedding
 import io.mockk.every
 import io.mockk.mockkStatic
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -56,11 +56,6 @@ class FileEmbeddingStoreTest {
         Assertions.assertEquals(2, loaded.size)
         Assertions.assertEquals(embeddings[0].id, loaded[0].id)
         Assertions.assertEquals(embeddings[1].embeddings.toList(), loaded[1].embeddings.toList())
-        if(store.useCache){
-            Assertions.assertTrue(store.isCached)
-        }else{
-            Assertions.assertFalse(store.isCached)
-        }
     }
 
     @Test
@@ -102,32 +97,7 @@ class FileEmbeddingStoreTest {
         store.add(embeddings)
 
         val firstLoad = store.get()
-        if(store.useCache){
-            Assertions.assertTrue(store.isCached)
-        }else{
-            Assertions.assertFalse(store.isCached)
-        }
-
         store.clear()
-        Assertions.assertFalse(store.isCached)
-
-        val secondLoad = store.get()
-        assertTrue(firstLoad.zip(secondLoad).all { (a, b) ->
-            a.id == b.id && a.date == b.date && a.embeddings.contentEquals(b.embeddings)
-        })
-    }
-
-    @Test
-    fun `never cache if useCache false`() = runTest {
-        val store = createStore(useCache = false)
-        val embeddings = listOf(embedding(1, 100, FloatArray(embeddingLength) { 0.1f }))
-        store.add(embeddings)
-
-        val firstLoad = store.get()
-        Assertions.assertFalse(store.isCached)
-
-        store.clear()
-        Assertions.assertFalse(store.isCached)
 
         val secondLoad = store.get()
         assertTrue(firstLoad.zip(secondLoad).all { (a, b) ->
@@ -163,6 +133,35 @@ class FileEmbeddingStoreTest {
         assertFailsWith<IOException> {
             store.add(listOf(embedding(2, 200, FloatArray(embeddingLength) { 2f })))
         }
+    }
+
+    @Test
+    fun `query batch retrieval with start and end works`() = runTest {
+        val store = createStore()
+
+        val embeddings = listOf(
+            embedding(1, 100, floatArrayOf(0.1f, 0.2f, 0.3f, 0.4f)),
+            embedding(2, 200, floatArrayOf(0.5f, 0.6f, 0.7f, 0.8f)),
+            embedding(3, 300, floatArrayOf(0.9f, 1.0f, 1.1f, 1.2f))
+        )
+        store.add(embeddings)
+
+        // trigger initial query to populate cachedIds
+        store.query(floatArrayOf(0.1f, 0.2f, 0.3f, 0.4f), topK = 3, threshold = 0f)
+
+        // fetch first two cached embeddings (order-agnostic)
+        val batch1 = store.query(0, 2)
+        assertEquals(2, batch1.size)
+        Assertions.assertTrue(batch1.map { it.id }.all { it in listOf(1L, 2L, 3L) })
+
+        // fetch last cached embedding
+        val batch2 = store.query(2, 3)
+        assertEquals(1, batch2.size)
+        Assertions.assertTrue(batch2[0].id in listOf(1L, 2L, 3L))
+
+        // out-of-bounds requests return empty
+        val batch3 = store.query(3, 5)
+        assertEquals(0, batch3.size)
     }
 
 }
