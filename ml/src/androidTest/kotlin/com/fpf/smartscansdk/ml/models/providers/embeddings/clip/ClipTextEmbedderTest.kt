@@ -3,11 +3,11 @@ package com.fpf.smartscansdk.ml.models.providers.embeddings.clip
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import android.content.Context
-import android.content.res.Resources
 import androidx.test.core.app.ApplicationProvider
 import com.fpf.smartscansdk.ml.data.ResourceId
 import com.fpf.smartscansdk.ml.data.TensorData
 import com.fpf.smartscansdk.ml.models.OnnxModel
+import com.fpf.smartscansdk.ml.providers.embeddings.clip.ClipTextEmbedder
 import io.mockk.*
 import kotlinx.coroutines.runBlocking
 import org.junit.After

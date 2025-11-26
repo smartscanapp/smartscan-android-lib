@@ -10,6 +10,7 @@ import com.fpf.smartscansdk.ml.data.TensorData
 import com.fpf.smartscansdk.ml.models.providers.embeddings.clip.ClipConfig.IMAGE_SIZE_X
 import com.fpf.smartscansdk.ml.models.providers.embeddings.clip.ClipConfig.IMAGE_SIZE_Y
 import com.fpf.smartscansdk.ml.models.OnnxModel
+import com.fpf.smartscansdk.ml.providers.embeddings.clip.ClipImageEmbedder
 import io.mockk.*
 import kotlinx.coroutines.runBlocking
 import org.junit.After

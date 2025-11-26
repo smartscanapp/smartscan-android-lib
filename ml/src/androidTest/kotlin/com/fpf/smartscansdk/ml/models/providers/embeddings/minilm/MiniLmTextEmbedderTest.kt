@@ -7,6 +7,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.fpf.smartscansdk.ml.data.ResourceId
 import com.fpf.smartscansdk.ml.data.TensorData
 import com.fpf.smartscansdk.ml.models.OnnxModel
+import com.fpf.smartscansdk.ml.providers.embeddings.minilm.MiniLMTextEmbedder
 import io.mockk.*
 import kotlinx.coroutines.runBlocking
 import org.junit.After

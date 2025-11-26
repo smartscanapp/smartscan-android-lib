@@ -4,6 +4,7 @@ import com.fpf.smartscansdk.core.data.ClassificationError
 import com.fpf.smartscansdk.core.data.ClassificationResult
 import com.fpf.smartscansdk.core.data.PrototypeEmbedding
 import com.fpf.smartscansdk.core.embeddings.dot
+import com.fpf.smartscansdk.ml.providers.embeddings.classify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
