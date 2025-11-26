@@ -1,4 +1,4 @@
-package com.fpf.smartscansdk.ml.models
+package com.fpf.smartscansdk.ml.models.loaders
 
 import android.content.res.Resources
 import androidx.annotation.RawRes
@@ -8,6 +8,7 @@ class FileOnnxLoader(private val path: String) : IModelLoader<ByteArray> {
     override suspend fun load(): ByteArray = File(path).readBytes()
 }
 
-class ResourceOnnxLoader(private val resources: Resources, @RawRes private val resId: Int) : IModelLoader<ByteArray> {
+class ResourceOnnxLoader(private val resources: Resources, @RawRes private val resId: Int) :
+    IModelLoader<ByteArray> {
     override suspend fun load(): ByteArray = resources.openRawResource(resId).readBytes()
 }

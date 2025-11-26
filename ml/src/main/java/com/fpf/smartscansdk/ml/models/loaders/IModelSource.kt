@@ -1,4 +1,4 @@
-package com.fpf.smartscansdk.ml.data
+package com.fpf.smartscansdk.ml.models.loaders
 
 import androidx.annotation.RawRes
 
