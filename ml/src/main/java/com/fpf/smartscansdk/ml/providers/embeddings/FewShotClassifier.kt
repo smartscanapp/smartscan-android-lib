@@ -1,4 +1,4 @@
-package com.fpf.smartscansdk.ml.models.providers.embeddings
+package com.fpf.smartscansdk.ml.providers.embeddings
 
 import com.fpf.smartscansdk.core.data.ClassificationError
 import com.fpf.smartscansdk.core.data.ClassificationResult

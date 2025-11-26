@@ -1,38 +1,38 @@
-package com.fpf.smartscansdk.ml.models.providers.embeddings.clip
+package com.fpf.smartscansdk.ml.providers.embeddings.inception
 
-import android.app.Application
 import android.content.Context
 import android.graphics.Bitmap
-import androidx.core.graphics.get
 import com.fpf.smartscansdk.core.embeddings.ImageEmbeddingProvider
-import com.fpf.smartscansdk.core.embeddings.normalizeL2
 import com.fpf.smartscansdk.core.media.centerCrop
 import com.fpf.smartscansdk.core.processors.BatchProcessor
 import com.fpf.smartscansdk.ml.data.FilePath
 import com.fpf.smartscansdk.ml.data.ModelSource
 import com.fpf.smartscansdk.ml.data.ResourceId
 import com.fpf.smartscansdk.ml.data.TensorData
-import com.fpf.smartscansdk.ml.models.OnnxModel
 import com.fpf.smartscansdk.ml.models.FileOnnxLoader
+import com.fpf.smartscansdk.ml.models.OnnxModel
 import com.fpf.smartscansdk.ml.models.ResourceOnnxLoader
-import kotlinx.coroutines.*
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.nio.FloatBuffer
 
-// Using ModelSource enables using with bundle model or local model which has been downloaded
-class ClipImageEmbedder(private val context: Context, modelSource: ModelSource, ) : ImageEmbeddingProvider {
-    companion object {
-        const val DIM_BATCH_SIZE = 1
-        const val DIM_PIXEL_SIZE = 3
-        const val IMAGE_SIZE_X = 224
-        const val IMAGE_SIZE_Y = 224
-        val MEAN = floatArrayOf(0.48145467f, 0.4578275f, 0.40821072f)
-        val STD  = floatArrayOf(0.26862955f, 0.2613026f, 0.2757771f)
-    }
+class InceptionResnetFaceEmbedder(
+    private val context: Context,
+    modelSource: ModelSource,
+) : ImageEmbeddingProvider {
     private val model: OnnxModel = when(modelSource){
         is FilePath -> OnnxModel(FileOnnxLoader(modelSource.path))
         is ResourceId -> OnnxModel(ResourceOnnxLoader(context.resources, modelSource.resId))
+    }
+
+    companion object {
+        private const val TAG = "FaceEmbedder"
+        const val DIM_BATCH_SIZE = 1
+        const val DIM_PIXEL_SIZE = 3
+        const val IMAGE_SIZE_X = 160
+        const val IMAGE_SIZE_Y = 160
+        val MEAN= floatArrayOf(0.485f, 0.456f, 0.406f)
+        val STD=floatArrayOf(0.229f, 0.224f, 0.225f)
     }
 
     override val embeddingDim: Int = 512
@@ -45,17 +45,17 @@ class ClipImageEmbedder(private val context: Context, modelSource: ModelSource, 
     override suspend fun embed(data: Bitmap): FloatArray = withContext(Dispatchers.Default) {
         if (!isInitialized()) throw IllegalStateException("Model not initialized")
 
+        val imgData = preProcess(data)
         val inputShape = longArrayOf(DIM_BATCH_SIZE.toLong(), DIM_PIXEL_SIZE.toLong(), IMAGE_SIZE_Y.toLong(), IMAGE_SIZE_X.toLong())
-        val imgData: FloatBuffer = preProcess(data)
         val inputName = model.getInputNames()?.firstOrNull() ?: throw IllegalStateException("Model inputs not available")
         val output = model.run(mapOf(inputName to TensorData.FloatBufferTensor(imgData, inputShape)))
-        normalizeL2((output.values.first() as Array<FloatArray>)[0])
+        (output.values.first() as Array<FloatArray>)[0]
     }
 
     override suspend fun embedBatch(data: List<Bitmap>): List<FloatArray> {
         val allEmbeddings = mutableListOf<FloatArray>()
 
-        val processor = object : BatchProcessor<Bitmap, FloatArray>(context = context.applicationContext as Application) {
+        val processor = object : BatchProcessor<Bitmap, FloatArray>(context = context.applicationContext) {
             override suspend fun onProcess(context: Context, item: Bitmap): FloatArray {
                 return embed(item)
             }
@@ -68,32 +68,30 @@ class ClipImageEmbedder(private val context: Context, modelSource: ModelSource, 
         return allEmbeddings
     }
 
+    private fun preProcess(bitmap: Bitmap): FloatBuffer {
+        val centredBitmap = centerCrop(bitmap, IMAGE_SIZE_X)
+        val imgData = FloatBuffer.allocate(DIM_BATCH_SIZE * DIM_PIXEL_SIZE * IMAGE_SIZE_X * IMAGE_SIZE_Y)
+        imgData.rewind()
+        val stride = IMAGE_SIZE_X * IMAGE_SIZE_Y
+        val bmpData = IntArray(stride)
+        centredBitmap.getPixels(bmpData, 0, centredBitmap.width, 0, 0, centredBitmap.width, centredBitmap.height)
+        for (i in 0..IMAGE_SIZE_X - 1) {
+            for (j in 0..IMAGE_SIZE_Y - 1) {
+                val idx = IMAGE_SIZE_Y * i + j
+                val pixelValue = bmpData[idx]
+                imgData.put(idx, (((pixelValue shr 16 and 0xFF) / 255f - MEAN[0]) / STD[0]))
+                imgData.put(idx + stride, (((pixelValue shr 8 and 0xFF) / 255f - MEAN[1]) / STD[1]))
+                imgData.put(idx + stride * 2, (((pixelValue and 0xFF) / 255f - MEAN[2]) / STD[2]))
+            }
+        }
+
+        imgData.rewind()
+        return imgData
+    }
+
     override fun closeSession() {
         if (closed) return
         closed = true
         (model as? AutoCloseable)?.close()
-    }
-
-    private fun preProcess(bitmap: Bitmap): FloatBuffer {
-        val cropped = centerCrop(bitmap, IMAGE_SIZE_X)
-        val numFloats = DIM_BATCH_SIZE * DIM_PIXEL_SIZE * IMAGE_SIZE_Y * IMAGE_SIZE_X
-        val byteBuffer = ByteBuffer.allocateDirect(numFloats * 4).order(ByteOrder.nativeOrder())
-        val floatBuffer = byteBuffer.asFloatBuffer()
-        for (c in 0 until DIM_PIXEL_SIZE) {
-            for (y in 0 until IMAGE_SIZE_Y) {
-                for (x in 0 until IMAGE_SIZE_X) {
-                    val px = cropped[x, y]
-                    val v = when (c) {
-                        0 -> (px shr 16 and 0xFF) / 255f  // R
-                        1 -> (px shr  8 and 0xFF) / 255f  // G
-                        else -> (px and 0xFF) / 255f  // B
-                    }
-                    val norm = (v - MEAN[c]) / STD[c]
-                    floatBuffer.put(norm)
-                }
-            }
-        }
-        floatBuffer.rewind()
-        return floatBuffer
     }
 }

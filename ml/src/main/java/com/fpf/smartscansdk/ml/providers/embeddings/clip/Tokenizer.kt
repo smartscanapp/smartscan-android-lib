@@ -1,4 +1,4 @@
-package com.fpf.smartscansdk.ml.models.providers.embeddings.clip
+package com.fpf.smartscansdk.ml.providers.embeddings.clip
 
 class ClipTokenizer(
     private val encoder: Map<String, Int>,

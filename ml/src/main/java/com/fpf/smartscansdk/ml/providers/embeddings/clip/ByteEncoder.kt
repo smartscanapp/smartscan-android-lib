@@ -1,4 +1,4 @@
-package com.fpf.smartscansdk.ml.models.providers.embeddings.clip
+package com.fpf.smartscansdk.ml.providers.embeddings.clip
 
 internal val byteEncoder: Map<Int, String> by lazy {
     hashMapOf<Int, String>().apply {

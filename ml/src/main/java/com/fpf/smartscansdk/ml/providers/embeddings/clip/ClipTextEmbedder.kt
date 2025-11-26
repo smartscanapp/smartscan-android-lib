@@ -1,4 +1,4 @@
-package com.fpf.smartscansdk.ml.models.providers.embeddings.clip
+package com.fpf.smartscansdk.ml.providers.embeddings.clip
 
 import android.app.Application
 import android.content.Context

@@ -1,4 +1,4 @@
-package com.fpf.smartscansdk.ml.models.providers.detectors.face
+package com.fpf.smartscansdk.ml.providers.detectors.face
 
 import android.content.Context
 import android.graphics.Bitmap

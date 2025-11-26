@@ -1,4 +1,4 @@
-package com.fpf.smartscansdk.ml.models.providers.embeddings.dino
+package com.fpf.smartscansdk.ml.providers.embeddings.dino
 
 import android.app.Application
 import android.content.Context

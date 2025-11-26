@@ -1,4 +1,4 @@
-package com.fpf.smartscansdk.ml.models.providers.embeddings.minilm
+package com.fpf.smartscansdk.ml.providers.embeddings.minilm
 
 import android.app.Application
 import android.content.Context
