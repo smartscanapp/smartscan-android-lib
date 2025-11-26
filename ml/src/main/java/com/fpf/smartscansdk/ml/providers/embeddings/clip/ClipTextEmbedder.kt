@@ -8,8 +8,8 @@ import com.fpf.smartscansdk.core.embeddings.TextEmbeddingProvider
 import com.fpf.smartscansdk.ml.R
 import com.fpf.smartscansdk.core.embeddings.normalizeL2
 import com.fpf.smartscansdk.ml.models.OnnxModel
-import com.fpf.smartscansdk.ml.models.FileOnnxLoader
-import com.fpf.smartscansdk.ml.models.ResourceOnnxLoader
+import com.fpf.smartscansdk.ml.models.loaders.FileOnnxLoader
+import com.fpf.smartscansdk.ml.models.loaders.ResourceOnnxLoader
 import com.fpf.smartscansdk.core.processors.BatchProcessor
 import com.fpf.smartscansdk.ml.data.FilePath
 import com.fpf.smartscansdk.ml.data.ModelSource

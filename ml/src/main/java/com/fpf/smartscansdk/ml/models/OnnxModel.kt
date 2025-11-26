@@ -3,7 +3,7 @@ package com.fpf.smartscansdk.ml.models
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
-import com.fpf.smartscansdk.ml.data.TensorData
+import com.fpf.smartscansdk.ml.models.loaders.IModelLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
