@@ -102,10 +102,11 @@ class FileEmbeddingStore(
     }
 
     override suspend fun add(newEmbeddings: List<Embedding>): Unit = withContext(Dispatchers.IO) {
-        if (newEmbeddings.isEmpty()) return@withContext
+        val filteredNewEmbeddings = newEmbeddings.filterNot { it.id in cache }
+        if (filteredNewEmbeddings.isEmpty()) return@withContext
 
         if (!file.exists()) {
-            save(newEmbeddings)
+            save(filteredNewEmbeddings)
             return@withContext
         }
 
@@ -129,7 +130,7 @@ class FileEmbeddingStore(
                 throw IOException("Corrupt embeddings header: count=$existingCount, fileSize=${channel.size()}")
             }
 
-            val newCount = existingCount + newEmbeddings.size
+            val newCount = existingCount + filteredNewEmbeddings.size
 
             // Write the updated count back as little-endian
             headerBuf.clear()
@@ -140,7 +141,7 @@ class FileEmbeddingStore(
             // Move to the end to append new entries
             channel.position(channel.size())
 
-            for (embedding in newEmbeddings) {
+            for (embedding in filteredNewEmbeddings) {
                 if (embedding.embeddings.size != embeddingDimension) {
                     throw IllegalArgumentException("Embedding dimension must be $embeddingDimension")
                 }
