@@ -1,3 +1,20 @@
+## v1.2.1 - 16/12/2025
+
+### Added
+* Added support for filterIds when querying
+
+### Fixed
+
+* Fixed duplication bug in `add` method of `FileEmbeddingStore`
+
+### Changed
+* Queries now return List<Long>
+* Indexer call `onBatchComplete` on listener if provided
+
+### Removed
+* Removed `useCache`
+
+
 ## v1.2.0 - 26/11/2025
 
 ### Added
