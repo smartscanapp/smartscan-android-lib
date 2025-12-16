@@ -10,6 +10,7 @@ interface IEmbeddingStore {
     suspend fun query(
         embedding: FloatArray,
         topK: Int,
-        threshold: Float
-    ): List<Embedding>
+        threshold: Float,
+        filterIds: List<Long> = emptyList()
+    ): List<Long>
 }

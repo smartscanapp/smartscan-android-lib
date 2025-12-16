@@ -16,7 +16,6 @@ import kotlin.collections.map
 class FileEmbeddingStore(
     private val file: File,
     private val embeddingDimension: Int,
-    val useCache: Boolean = true,
     ):
     IEmbeddingStore {
 
@@ -24,7 +23,7 @@ class FileEmbeddingStore(
         const val TAG = "FileEmbeddingStore"
     }
 
-    private var cache: LinkedHashMap<Long, Embedding>? = null
+    private var cache: LinkedHashMap<Long, Embedding> = LinkedHashMap()
     private var cachedIds: List<Long>? = null
 
     override val exists: Boolean get() = file.exists()
@@ -32,9 +31,8 @@ class FileEmbeddingStore(
     // prevent OOM in FileEmbeddingStore.save() by batching writes
     private suspend fun save(embeddingsList: List<Embedding>): Unit = withContext(Dispatchers.IO) {
         if (embeddingsList.isEmpty()) return@withContext
-        if(useCache){
-            cache = LinkedHashMap(embeddingsList.associateBy { it.id })
-        }
+
+        cache = LinkedHashMap(embeddingsList.associateBy { it.id })
 
         FileOutputStream(file).channel.use { channel ->
             val header = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN)
@@ -73,14 +71,13 @@ class FileEmbeddingStore(
 
     // This explicitly makes clear the design constraints that requires the full index to be loaded in memory
     override suspend fun get(): List<Embedding> = withContext(Dispatchers.IO){
-        cache?.let { return@withContext it.values.toList() };
+        if (cache.isNotEmpty()) return@withContext cache.values.toList()
 
         FileInputStream(file).channel.use { ch ->
             val fileSize = ch.size()
             val buffer = ch.map(FileChannel.MapMode.READ_ONLY, 0, fileSize).order(ByteOrder.LITTLE_ENDIAN)
 
             val count = buffer.int
-            val map = LinkedHashMap<Long, Embedding>(count)
 
             repeat(count) {
                 val id = buffer.long
@@ -89,31 +86,27 @@ class FileEmbeddingStore(
                 val fb = buffer.asFloatBuffer()
                 fb.get(floats)
                 buffer.position(buffer.position() + embeddingDimension * 4)
-                map[id] = Embedding(id, date, floats)
+                cache[id] = Embedding(id, date, floats)
             }
-            if (useCache) cache = map
-            map.values.toList()
+            cache.values.toList()
         }
     }
 
     suspend fun get(ids: List<Long>): List<Embedding> = withContext(Dispatchers.IO) {
-        val map = cache ?: run {
-            val all = get()
-            LinkedHashMap(all.associateBy { it.id })
-        }
         val embeddings = mutableListOf<Embedding>()
 
         for (id in ids) {
-            map.get(id)?.let { embeddings.add(it) }
+            cache.get(id)?.let { embeddings.add(it) }
         }
         embeddings
     }
 
     override suspend fun add(newEmbeddings: List<Embedding>): Unit = withContext(Dispatchers.IO) {
-        if (newEmbeddings.isEmpty()) return@withContext
+        val filteredNewEmbeddings = newEmbeddings.filterNot { it.id in cache }
+        if (filteredNewEmbeddings.isEmpty()) return@withContext
 
         if (!file.exists()) {
-            save(newEmbeddings)
+            save(filteredNewEmbeddings)
             return@withContext
         }
 
@@ -137,7 +130,7 @@ class FileEmbeddingStore(
                 throw IOException("Corrupt embeddings header: count=$existingCount, fileSize=${channel.size()}")
             }
 
-            val newCount = existingCount + newEmbeddings.size
+            val newCount = existingCount + filteredNewEmbeddings.size
 
             // Write the updated count back as little-endian
             headerBuf.clear()
@@ -148,7 +141,7 @@ class FileEmbeddingStore(
             // Move to the end to append new entries
             channel.position(channel.size())
 
-            for (embedding in newEmbeddings) {
+            for (embedding in filteredNewEmbeddings) {
                 if (embedding.embeddings.size != embeddingDimension) {
                     throw IllegalArgumentException("Embedding dimension must be $embeddingDimension")
                 }
@@ -161,13 +154,9 @@ class FileEmbeddingStore(
                 while (buf.hasRemaining()) {
                     channel.write(buf)
                 }
+                cache[embedding.id] = embedding
             }
             channel.force(false)
-            if (useCache) {
-                val map = cache ?: LinkedHashMap()
-                for (e in newEmbeddings) map[e.id] = e
-                cache = map
-            }
         }
     }
 
@@ -175,19 +164,13 @@ class FileEmbeddingStore(
         if (ids.isEmpty()) return@withContext
 
         try {
-            val map = cache ?: run {
-                // Load all embeddings into the map if cache is empty
-                val all = get()
-                LinkedHashMap(all.associateBy { it.id })
-            }
-
             var removedCount = 0
             for (id in ids) {
-                if (map.remove(id) != null) removedCount++
+                if (cache.remove(id) != null) removedCount++
             }
 
             if (removedCount > 0) {
-                save(map.values.toList())
+                save(cache.values.toList())
                 Log.i(TAG, "Removed $removedCount stale embeddings")
             }
         } catch (e: Exception) {
@@ -197,12 +180,11 @@ class FileEmbeddingStore(
 
 
     override fun clear(){
-        cache = null
+        cache.clear()
     }
 
 
-    override suspend fun query(embedding: FloatArray, topK: Int, threshold: Float): List<Embedding> {
-
+    override suspend fun query(embedding: FloatArray, topK: Int, threshold: Float, filterIds: List<Long>): List<Long> {
         cachedIds = null // clear on new search
 
         val storedEmbeddings = get()
@@ -214,23 +196,19 @@ class FileEmbeddingStore(
 
         if (resultIndices.isEmpty()) return emptyList()
 
-        val idsToCache = mutableListOf<Long>()
-        val results = resultIndices.map{idx ->
-            idsToCache.add( storedEmbeddings[idx].id)
-            storedEmbeddings[idx]
-        }
-        cachedIds = idsToCache
+        val results = resultIndices.map{idx -> storedEmbeddings[idx].id }.filter { filterIds.isEmpty() || it in filterIds }
+        cachedIds = results
         return results
     }
 
-    suspend fun query(start: Int, end: Int): List<Embedding> {
+    suspend fun query(start: Int, end: Int): List<Long> {
         val ids = cachedIds ?: return emptyList()
         val s = start.coerceAtLeast(0)
         val e = end.coerceAtMost(ids.size)
         if (s >= e) return emptyList()
 
         val batch = get(ids.subList(s, e))
-        return batch
+        return batch.map { it.id }
     }
 
 }

@@ -34,6 +34,7 @@ class ImageIndexer(
 
     override suspend fun onBatchComplete(context: Context, batch: List<Embedding>) {
         store.add(batch)
+        listener?.onBatchComplete(context, batch)
     }
 
     override suspend fun onProcess(context: Context, item: Long): Embedding {

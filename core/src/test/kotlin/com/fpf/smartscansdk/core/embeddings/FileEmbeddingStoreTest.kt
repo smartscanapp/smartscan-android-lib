@@ -36,8 +36,8 @@ class FileEmbeddingStoreTest {
 
     private val embeddingLength = 4
 
-    private fun createStore(file: File = File(tempDir, "embeddings.bin"), useCache: Boolean = true) =
-        FileEmbeddingStore(file, embeddingLength, useCache = useCache)
+    private fun createStore(file: File = File(tempDir, "embeddings.bin")) =
+        FileEmbeddingStore(file, embeddingLength)
 
     private fun embedding(id: Long, date: Long, values: FloatArray) =
         Embedding(id, date, values)
@@ -152,16 +152,56 @@ class FileEmbeddingStoreTest {
         // fetch first two cached embeddings (order-agnostic)
         val batch1 = store.query(0, 2)
         assertEquals(2, batch1.size)
-        Assertions.assertTrue(batch1.map { it.id }.all { it in listOf(1L, 2L, 3L) })
+        Assertions.assertTrue(batch1.map { it }.all { it in listOf(1L, 2L, 3L) })
 
         // fetch last cached embedding
         val batch2 = store.query(2, 3)
         assertEquals(1, batch2.size)
-        Assertions.assertTrue(batch2[0].id in listOf(1L, 2L, 3L))
+        Assertions.assertTrue(batch2[0] in listOf(1L, 2L, 3L))
 
         // out-of-bounds requests return empty
         val batch3 = store.query(3, 5)
         assertEquals(0, batch3.size)
     }
+
+    @Test
+    fun `duplicated ids are not persisted to file`() = runTest {
+        val store = createStore()
+        val file = File(tempDir, "embeddings.bin")
+
+        val first = embedding(1L, 100, floatArrayOf(1f, 2f, 3f, 4f))
+        store.add(listOf(first))
+
+        val duplicate = embedding(1L, 200, floatArrayOf(5f, 6f, 7f, 8f))
+        store.add(listOf(duplicate))
+
+        // cache should show a single entry (overwritten by the second add)
+        val loaded = store.get()
+        assertEquals(1, loaded.size)
+        assertEquals(1L, loaded[0].id)
+
+        // Inspect raw file contents to count occurrences of id=1
+        RandomAccessFile(file, "r").use { raf ->
+            val ch = raf.channel
+            val buffer = ch.map(java.nio.channels.FileChannel.MapMode.READ_ONLY, 0, ch.size())
+                .order(ByteOrder.LITTLE_ENDIAN)
+
+            val headerCount = buffer.int
+            var occurrences = 0
+            repeat(headerCount) {
+                val id = buffer.long
+                val date = buffer.long
+                val floats = FloatArray(embeddingLength)
+                val fb = buffer.asFloatBuffer()
+                fb.get(floats)
+                buffer.position(buffer.position() + embeddingLength * 4)
+                if (id == 1L) occurrences++
+            }
+
+            Assertions.assertEquals(1, headerCount)
+            Assertions.assertEquals(1, occurrences)
+        }
+    }
+
 
 }
