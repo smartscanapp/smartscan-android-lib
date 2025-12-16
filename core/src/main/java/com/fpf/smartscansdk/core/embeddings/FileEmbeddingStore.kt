@@ -184,7 +184,7 @@ class FileEmbeddingStore(
     }
 
 
-    override suspend fun query(embedding: FloatArray, topK: Int, threshold: Float): List<Long> {
+    override suspend fun query(embedding: FloatArray, topK: Int, threshold: Float, filterIds: List<Long>): List<Long> {
         cachedIds = null // clear on new search
 
         val storedEmbeddings = get()
@@ -196,7 +196,7 @@ class FileEmbeddingStore(
 
         if (resultIndices.isEmpty()) return emptyList()
 
-        val results = resultIndices.map{idx -> storedEmbeddings[idx].id }
+        val results = resultIndices.map{idx -> storedEmbeddings[idx].id }.filter { filterIds.isEmpty() || it in filterIds }
         cachedIds = results
         return results
     }
