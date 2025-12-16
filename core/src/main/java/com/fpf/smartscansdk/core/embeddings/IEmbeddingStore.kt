@@ -11,5 +11,5 @@ interface IEmbeddingStore {
         embedding: FloatArray,
         topK: Int,
         threshold: Float
-    ): List<Embedding>
+    ): List<Long>
 }
