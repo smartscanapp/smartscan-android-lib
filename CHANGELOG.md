@@ -1,4 +1,4 @@
-## v1.2.1 - 16/12/2025
+## v1.2.1 - 17/12/2025
 
 ### Added
 * Added support for filterIds when querying
@@ -6,6 +6,7 @@
 ### Fixed
 
 * Fixed duplication bug in `add` method of `FileEmbeddingStore`
+* Fixed get(ids) return no results due to empty cache
 
 ### Changed
 * Queries now return List<Long>
