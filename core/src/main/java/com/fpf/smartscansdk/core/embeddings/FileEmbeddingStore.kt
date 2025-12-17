@@ -93,6 +93,7 @@ class FileEmbeddingStore(
     }
 
     suspend fun get(ids: List<Long>): List<Embedding> = withContext(Dispatchers.IO) {
+        if(cache.isEmpty()) cache = LinkedHashMap(get().associateBy { it.id })
         val embeddings = mutableListOf<Embedding>()
 
         for (id in ids) {
