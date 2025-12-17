@@ -203,5 +203,18 @@ class FileEmbeddingStoreTest {
         }
     }
 
+    @Test
+    fun `get(ids) loads file if cache is empty`() = runTest {
+        val store = createStore()
+        val first = embedding(1L, 100, floatArrayOf(1f, 2f, 3f, 4f))
+        store.add(listOf(first))
+
+        val store2 = createStore()
+
+        val loaded = store2.get(listOf(1L))
+        assertEquals(1, loaded.size)
+        assertEquals(1L, loaded[0].id)
+    }
+
 
 }
