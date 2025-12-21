@@ -97,7 +97,7 @@ val gitVersion: String by lazy {
 publishing {
     publications {
         register<MavenPublication>("release") {
-            groupId = "com.github.dev-diaries41.smartscan-sdk"
+            groupId = "com.github.smartscanapp.smartscan-sdk"
             artifactId = "smartscan-${project.name}"
             version = gitVersion
 
