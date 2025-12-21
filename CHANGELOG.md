@@ -5,6 +5,7 @@
 
 ### Changed
 * Renamed `Embedding` to `StoredEmbedding` for clarity (breaking change)
+* `fewShotClassification` now uses cohesionScores instead of manual threshold and conf margin
 
 ### Removed
 * Removed `PrototypeEmbedding` class. For classification, StoredEmbedding is now used and id: Long, represent classId. Use is expected to store mapping to string if needed.
