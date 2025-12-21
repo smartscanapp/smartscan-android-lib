@@ -36,7 +36,7 @@ suspend fun generatePrototypeEmbedding(embeddings: List<FloatArray>): FloatArray
     }
 
 // updatedPrototype = ((N * currentPrototype) + sum(newEmbedding)) / (N + newN)
-suspend fun updateTagPrototype(prototypeEmbedding: FloatArray, newEmbeddings: List<FloatArray>, currentN: Int): Pair<FloatArray, Int> = withContext(Dispatchers.Default){
+suspend fun updatePrototype(prototypeEmbedding: FloatArray, newEmbeddings: List<FloatArray>, currentN: Int): Pair<FloatArray, Int> = withContext(Dispatchers.Default){
     val updatedN = currentN + newEmbeddings.size
     val sumNew = sumEmbeddings(newEmbeddings)
     val updatedPrototype = FloatArray(prototypeEmbedding.size)
