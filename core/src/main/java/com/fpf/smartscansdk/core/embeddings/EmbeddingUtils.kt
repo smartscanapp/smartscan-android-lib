@@ -32,9 +32,22 @@ suspend fun generatePrototypeEmbedding(rawEmbeddings: List<FloatArray>): FloatAr
         val embeddingLength = rawEmbeddings[0].size
         val sum = FloatArray(embeddingLength)
         for (emb in rawEmbeddings) for (i in emb.indices) sum[i] += emb[i]
-
         normalizeL2(FloatArray(embeddingLength) { i -> sum[i] / rawEmbeddings.size })
     }
+
+suspend fun updateTagPrototype(prototypeEmbedding: FloatArray, newItemEmbeddings: List<Embedding>, currentN: Int): Pair<FloatArray, Int> = withContext(Dispatchers.Default){
+    // updatedPrototype = ((N * currentPrototype) + sum(newEmbedding)) / (N + newN)
+    val updatedN = currentN + newItemEmbeddings.size
+    val sumNew = sumEmbeddings(newItemEmbeddings.map { it.embeddings })
+    val updatedPrototype = FloatArray(prototypeEmbedding.size)
+    if(currentN > 0){
+        for(i in updatedPrototype.indices) updatedPrototype[i] = currentN.toFloat() * prototypeEmbedding[i]
+    }
+    for (i in updatedPrototype.indices) updatedPrototype[i] += sumNew[i]
+    for (i in updatedPrototype.indices) updatedPrototype[i] /= updatedN.toFloat()
+    Pair(normalizeL2(updatedPrototype), updatedN)
+}
+
 
 
 fun flattenEmbeddings(embeddings: List<FloatArray>, embeddingDim: Int): FloatArray {
@@ -57,6 +70,15 @@ fun unflattenEmbeddings(flattened: FloatArray, embeddingDim: Int): List<FloatArr
     return embeddings
 }
 
+fun sumEmbeddings(embeddings: List<FloatArray>): FloatArray {
+    val sum = FloatArray(embeddings[0].size)
+    for (emb in embeddings) {
+        for (i in emb.indices) {
+            sum[i] += emb[i]
+        }
+    }
+    return sum
+}
 
 
 
