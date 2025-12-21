@@ -29,7 +29,7 @@ Interface for storing embeddings persistently.
 | ------------------------------------- | ------------------------------------------------------ |
 | `exists`                              | Returns true if the store exists                       |
 | `isCached`                            | Indicates if embeddings are currently cached in memory |
-| `add(newEmbeddings: List<Embedding>)` | Adds new embeddings to the store                       |
+| `add(newStoredEmbeddings: List<Embedding>)` | Adds new embeddings to the store                       |
 | `remove(ids: List<Long>)`             | Removes embeddings by ID                               |
 | `get()`                               | Returns all stored embeddings                          |
 | `clear()`                             | Clears the in-memory cache (does not delete the store) |
@@ -76,7 +76,7 @@ Key features:
 | `get()`                               | Loads all embeddings from the file (or cache if available). Returns `List<Embedding>`.                |
 | `get(ids: List<Long>)`                | Retrieves a list of embeddings by their IDs.                                                          |
 | `get(id: Long)`                       | Retrieves a single embedding by its ID, or `null` if not found.                                       |
-| `add(newEmbeddings: List<Embedding>)` | Adds new embeddings to the store. Updates file header, appends entries, and optionally updates cache. |
+| `add(newStoredEmbeddings: List<Embedding>)` | Adds new embeddings to the store. Updates file header, appends entries, and optionally updates cache. |
 | `remove(ids: List<Long>)`             | Removes embeddings by their IDs and saves the updated file.                                           |
 | `clear()`                             | Clears in-memory cache (does not delete the file).                                                    |
 

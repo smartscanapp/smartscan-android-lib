@@ -26,19 +26,19 @@ fun getTopN(similarities: List<Float>, n: Int, threshold: Float = 0f): List<Int>
         .take(n)
 }
 
-suspend fun generatePrototypeEmbedding(rawEmbeddings: List<FloatArray>): FloatArray =
+suspend fun generatePrototypeEmbedding(embeddings: List<FloatArray>): FloatArray =
     withContext(Dispatchers.Default) {
-        if (rawEmbeddings.isEmpty()) throw IllegalStateException("Missing embeddings")
-        val embeddingLength = rawEmbeddings[0].size
+        if (embeddings.isEmpty()) throw IllegalStateException("Missing embeddings")
+        val embeddingLength = embeddings[0].size
         val sum = FloatArray(embeddingLength)
-        for (emb in rawEmbeddings) for (i in emb.indices) sum[i] += emb[i]
-        normalizeL2(FloatArray(embeddingLength) { i -> sum[i] / rawEmbeddings.size })
+        for (emb in embeddings) for (i in emb.indices) sum[i] += emb[i]
+        normalizeL2(FloatArray(embeddingLength) { i -> sum[i] / embeddings.size })
     }
 
-suspend fun updateTagPrototype(prototypeEmbedding: FloatArray, newItemEmbeddings: List<Embedding>, currentN: Int): Pair<FloatArray, Int> = withContext(Dispatchers.Default){
-    // updatedPrototype = ((N * currentPrototype) + sum(newEmbedding)) / (N + newN)
-    val updatedN = currentN + newItemEmbeddings.size
-    val sumNew = sumEmbeddings(newItemEmbeddings.map { it.embeddings })
+// updatedPrototype = ((N * currentPrototype) + sum(newEmbedding)) / (N + newN)
+suspend fun updateTagPrototype(prototypeEmbedding: FloatArray, newEmbeddings: List<FloatArray>, currentN: Int): Pair<FloatArray, Int> = withContext(Dispatchers.Default){
+    val updatedN = currentN + newEmbeddings.size
+    val sumNew = sumEmbeddings(newEmbeddings)
     val updatedPrototype = FloatArray(prototypeEmbedding.size)
     if(currentN > 0){
         for(i in updatedPrototype.indices) updatedPrototype[i] = currentN.toFloat() * prototypeEmbedding[i]
@@ -47,8 +47,6 @@ suspend fun updateTagPrototype(prototypeEmbedding: FloatArray, newItemEmbeddings
     for (i in updatedPrototype.indices) updatedPrototype[i] /= updatedN.toFloat()
     Pair(normalizeL2(updatedPrototype), updatedN)
 }
-
-
 
 fun flattenEmbeddings(embeddings: List<FloatArray>, embeddingDim: Int): FloatArray {
     val batchSize = embeddings.size

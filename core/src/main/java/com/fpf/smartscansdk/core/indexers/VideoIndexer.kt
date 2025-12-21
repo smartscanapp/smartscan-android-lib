@@ -3,7 +3,7 @@ package com.fpf.smartscansdk.core.indexers
 import android.content.ContentUris
 import android.content.Context
 import android.provider.MediaStore
-import com.fpf.smartscansdk.core.embeddings.Embedding
+import com.fpf.smartscansdk.core.embeddings.StoredEmbedding
 import com.fpf.smartscansdk.core.embeddings.IEmbeddingStore
 import com.fpf.smartscansdk.core.embeddings.ImageEmbeddingProvider
 import com.fpf.smartscansdk.core.embeddings.generatePrototypeEmbedding
@@ -24,22 +24,22 @@ class VideoIndexer(
     private val width: Int,
     private val height: Int,
     context: Context,
-    listener: IProcessorListener<Long, Embedding>? = null,
+    listener: IProcessorListener<Long, StoredEmbedding>? = null,
     batchSize: Int = 10,
     memoryOptions: MemoryOptions = MemoryOptions(),
     private val store: IEmbeddingStore,
-    ): BatchProcessor<Long, Embedding>(context, listener, memoryOptions, batchSize){
+    ): BatchProcessor<Long, StoredEmbedding>(context, listener, memoryOptions, batchSize){
 
     companion object {
         const val INDEX_FILENAME = "video_index.bin"
     }
 
-    override suspend fun onBatchComplete(context: Context, batch: List<Embedding>) {
+    override suspend fun onBatchComplete(context: Context, batch: List<StoredEmbedding>) {
         store.add(batch)
         listener?.onBatchComplete(context, batch)
     }
 
-    override suspend fun onProcess(context: Context, item: Long): Embedding {
+    override suspend fun onProcess(context: Context, item: Long): StoredEmbedding {
         val contentUri = ContentUris.withAppendedId(
             MediaStore.Video.Media.EXTERNAL_CONTENT_URI, item
         )
@@ -50,10 +50,10 @@ class VideoIndexer(
         val rawEmbeddings = embedder.embedBatch(frameBitmaps)
         val embedding: FloatArray = generatePrototypeEmbedding(rawEmbeddings)
 
-        return Embedding(
+        return StoredEmbedding(
             id = item,
             date = System.currentTimeMillis(),
-            embeddings = embedding
+            embedding = embedding
         )
     }
 

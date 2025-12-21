@@ -23,13 +23,13 @@ class FileEmbeddingStore(
         const val TAG = "FileEmbeddingStore"
     }
 
-    private var cache: LinkedHashMap<Long, Embedding> = LinkedHashMap()
+    private var cache: LinkedHashMap<Long, StoredEmbedding> = LinkedHashMap()
     private var cachedIds: List<Long>? = null
 
     override val exists: Boolean get() = file.exists()
 
     // prevent OOM in FileEmbeddingStore.save() by batching writes
-    private suspend fun save(embeddingsList: List<Embedding>): Unit = withContext(Dispatchers.IO) {
+    private suspend fun save(embeddingsList: List<StoredEmbedding>): Unit = withContext(Dispatchers.IO) {
         if (embeddingsList.isEmpty()) return@withContext
 
         cache = LinkedHashMap(embeddingsList.associateBy { it.id })
@@ -52,12 +52,12 @@ class FileEmbeddingStore(
                     .order(ByteOrder.LITTLE_ENDIAN)
 
                 for (embedding in batch) {
-                    if (embedding.embeddings.size != embeddingDimension) {
-                        throw IllegalArgumentException("Embedding dimension must be $embeddingDimension")
+                    if (embedding.embedding.size != embeddingDimension) {
+                        throw IllegalArgumentException("embedding dimension must be $embeddingDimension")
                     }
                     batchBuffer.putLong(embedding.id)
                     batchBuffer.putLong(embedding.date)
-                    for (f in embedding.embeddings) {
+                    for (f in embedding.embedding) {
                         batchBuffer.putFloat(f)
                     }
                 }
@@ -70,7 +70,7 @@ class FileEmbeddingStore(
     }
 
     // This explicitly makes clear the design constraints that requires the full index to be loaded in memory
-    override suspend fun get(): List<Embedding> = withContext(Dispatchers.IO){
+    override suspend fun get(): List<StoredEmbedding> = withContext(Dispatchers.IO){
         if (cache.isNotEmpty()) return@withContext cache.values.toList()
 
         FileInputStream(file).channel.use { ch ->
@@ -86,24 +86,24 @@ class FileEmbeddingStore(
                 val fb = buffer.asFloatBuffer()
                 fb.get(floats)
                 buffer.position(buffer.position() + embeddingDimension * 4)
-                cache[id] = Embedding(id, date, floats)
+                cache[id] = StoredEmbedding(id, date, floats)
             }
             cache.values.toList()
         }
     }
 
-    suspend fun get(ids: List<Long>): List<Embedding> = withContext(Dispatchers.IO) {
+    suspend fun get(ids: List<Long>): List<StoredEmbedding> = withContext(Dispatchers.IO) {
         if(cache.isEmpty()) cache = LinkedHashMap(get().associateBy { it.id })
-        val embeddings = mutableListOf<Embedding>()
+        val storedEmbeddings = mutableListOf<StoredEmbedding>()
 
         for (id in ids) {
-            cache.get(id)?.let { embeddings.add(it) }
+            cache.get(id)?.let { storedEmbeddings.add(it) }
         }
-        embeddings
+        storedEmbeddings
     }
 
-    override suspend fun add(newEmbeddings: List<Embedding>): Unit = withContext(Dispatchers.IO) {
-        val filteredNewEmbeddings = newEmbeddings.filterNot { it.id in cache }
+    override suspend fun add(newStoredEmbeddings: List<StoredEmbedding>): Unit = withContext(Dispatchers.IO) {
+        val filteredNewEmbeddings = newStoredEmbeddings.filterNot { it.id in cache }
         if (filteredNewEmbeddings.isEmpty()) return@withContext
 
         if (!file.exists()) {
@@ -143,14 +143,14 @@ class FileEmbeddingStore(
             channel.position(channel.size())
 
             for (embedding in filteredNewEmbeddings) {
-                if (embedding.embeddings.size != embeddingDimension) {
-                    throw IllegalArgumentException("Embedding dimension must be $embeddingDimension")
+                if (embedding.embedding.size != embeddingDimension) {
+                    throw IllegalArgumentException("embedding dimension must be $embeddingDimension")
                 }
                 val entryBytes = (8 + 8) + embeddingDimension * 4
                 val buf = ByteBuffer.allocate(entryBytes).order(ByteOrder.LITTLE_ENDIAN)
                 buf.putLong(embedding.id)
                 buf.putLong(embedding.date)
-                for (f in embedding.embeddings) buf.putFloat(f)
+                for (f in embedding.embedding) buf.putFloat(f)
                 buf.flip()
                 while (buf.hasRemaining()) {
                     channel.write(buf)
@@ -192,7 +192,7 @@ class FileEmbeddingStore(
 
         if (storedEmbeddings.isEmpty()) return emptyList()
 
-        val similarities = getSimilarities(embedding, storedEmbeddings.map { it.embeddings })
+        val similarities = getSimilarities(embedding, storedEmbeddings.map { it.embedding })
         val resultIndices = getTopN(similarities, topK, threshold)
 
         if (resultIndices.isEmpty()) return emptyList()
