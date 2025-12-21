@@ -1,3 +1,15 @@
+## v1.3.0 - 21/12/2025
+
+### Added
+* Added `updatePrototype` method in EmbeddingUtils.kt
+
+### Changed
+* Renamed `Embedding` to `StoredEmbedding` for clarity (breaking change)
+
+### Removed
+* Removed `PrototypeEmbedding` class. For classification, StoredEmbedding is now used and id: Long, represent classId. Use is expected to store mapping to string if needed.
+
+
 ## v1.2.1 - 17/12/2025
 
 ### Added
