@@ -26,16 +26,27 @@ fun getTopN(similarities: List<Float>, n: Int, threshold: Float = 0f): List<Int>
         .take(n)
 }
 
-suspend fun generatePrototypeEmbedding(rawEmbeddings: List<FloatArray>): FloatArray =
+suspend fun generatePrototypeEmbedding(embeddings: List<FloatArray>): FloatArray =
     withContext(Dispatchers.Default) {
-        if (rawEmbeddings.isEmpty()) throw IllegalStateException("Missing embeddings")
-        val embeddingLength = rawEmbeddings[0].size
+        if (embeddings.isEmpty()) throw IllegalStateException("Missing embeddings")
+        val embeddingLength = embeddings[0].size
         val sum = FloatArray(embeddingLength)
-        for (emb in rawEmbeddings) for (i in emb.indices) sum[i] += emb[i]
-
-        normalizeL2(FloatArray(embeddingLength) { i -> sum[i] / rawEmbeddings.size })
+        for (emb in embeddings) for (i in emb.indices) sum[i] += emb[i]
+        normalizeL2(FloatArray(embeddingLength) { i -> sum[i] / embeddings.size })
     }
 
+// updatedPrototype = ((N * currentPrototype) + sum(newEmbedding)) / (N + newN)
+suspend fun updatePrototype(prototypeEmbedding: FloatArray, newEmbeddings: List<FloatArray>, currentN: Int): Pair<FloatArray, Int> = withContext(Dispatchers.Default){
+    val updatedN = currentN + newEmbeddings.size
+    val sumNew = sumEmbeddings(newEmbeddings)
+    val updatedPrototype = FloatArray(prototypeEmbedding.size)
+    if(currentN > 0){
+        for(i in updatedPrototype.indices) updatedPrototype[i] = currentN.toFloat() * prototypeEmbedding[i]
+    }
+    for (i in updatedPrototype.indices) updatedPrototype[i] += sumNew[i]
+    for (i in updatedPrototype.indices) updatedPrototype[i] /= updatedN.toFloat()
+    Pair(normalizeL2(updatedPrototype), updatedN)
+}
 
 fun flattenEmbeddings(embeddings: List<FloatArray>, embeddingDim: Int): FloatArray {
     val batchSize = embeddings.size
@@ -57,6 +68,15 @@ fun unflattenEmbeddings(flattened: FloatArray, embeddingDim: Int): List<FloatArr
     return embeddings
 }
 
+fun sumEmbeddings(embeddings: List<FloatArray>): FloatArray {
+    val sum = FloatArray(embeddings[0].size)
+    for (emb in embeddings) {
+        for (i in emb.indices) {
+            sum[i] += emb[i]
+        }
+    }
+    return sum
+}
 
 
 

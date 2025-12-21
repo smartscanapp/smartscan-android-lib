@@ -40,7 +40,7 @@ class FileEmbeddingStoreTest {
         FileEmbeddingStore(file, embeddingLength)
 
     private fun embedding(id: Long, date: Long, values: FloatArray) =
-        Embedding(id, date, values)
+        StoredEmbedding(id, date, values)
 
     @Test
     fun `add and load embeddings round trip`() = runTest {
@@ -55,7 +55,7 @@ class FileEmbeddingStoreTest {
 
         Assertions.assertEquals(2, loaded.size)
         Assertions.assertEquals(embeddings[0].id, loaded[0].id)
-        Assertions.assertEquals(embeddings[1].embeddings.toList(), loaded[1].embeddings.toList())
+        Assertions.assertEquals(embeddings[1].embedding.toList(), loaded[1].embedding.toList())
     }
 
     @Test
@@ -101,7 +101,7 @@ class FileEmbeddingStoreTest {
 
         val secondLoad = store.get()
         assertTrue(firstLoad.zip(secondLoad).all { (a, b) ->
-            a.id == b.id && a.date == b.date && a.embeddings.contentEquals(b.embeddings)
+            a.id == b.id && a.date == b.date && a.embedding.contentEquals(b.embedding)
         })
     }
 

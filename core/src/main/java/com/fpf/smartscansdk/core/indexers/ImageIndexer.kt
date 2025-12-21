@@ -3,7 +3,7 @@ package com.fpf.smartscansdk.core.indexers
 import android.content.ContentUris
 import android.content.Context
 import android.provider.MediaStore
-import com.fpf.smartscansdk.core.embeddings.Embedding
+import com.fpf.smartscansdk.core.embeddings.StoredEmbedding
 import com.fpf.smartscansdk.core.embeddings.IEmbeddingStore
 import com.fpf.smartscansdk.core.embeddings.ImageEmbeddingProvider
 import com.fpf.smartscansdk.core.media.getBitmapFromUri
@@ -23,21 +23,21 @@ class ImageIndexer(
     private val store: IEmbeddingStore,
     private val maxImageSize: Int = 225,
     context: Context,
-    listener: IProcessorListener<Long, Embedding>? = null,
+    listener: IProcessorListener<Long, StoredEmbedding>? = null,
     memoryOptions: MemoryOptions = MemoryOptions(),
     batchSize: Int = 10,
-    ): BatchProcessor<Long, Embedding>(context, listener, memoryOptions, batchSize){
+    ): BatchProcessor<Long, StoredEmbedding>(context, listener, memoryOptions, batchSize){
 
     companion object {
         const val INDEX_FILENAME = "image_index.bin"
     }
 
-    override suspend fun onBatchComplete(context: Context, batch: List<Embedding>) {
+    override suspend fun onBatchComplete(context: Context, batch: List<StoredEmbedding>) {
         store.add(batch)
         listener?.onBatchComplete(context, batch)
     }
 
-    override suspend fun onProcess(context: Context, item: Long): Embedding {
+    override suspend fun onProcess(context: Context, item: Long): StoredEmbedding {
         val contentUri = ContentUris.withAppendedId(
             MediaStore.Images.Media.EXTERNAL_CONTENT_URI, item
         )
@@ -45,10 +45,10 @@ class ImageIndexer(
         val embedding = withContext(NonCancellable) {
             embedder.embed(bitmap)
         }
-        return Embedding(
+        return StoredEmbedding(
             id = item,
             date = System.currentTimeMillis(),
-            embeddings = embedding
+            embedding = embedding
         )
     }
 }
