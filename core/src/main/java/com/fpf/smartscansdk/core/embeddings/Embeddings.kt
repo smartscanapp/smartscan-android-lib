@@ -6,10 +6,3 @@ data class Embedding(
     val date: Long,
     val embeddings: FloatArray
 )
-
-// `PrototypeEmbedding` represents an aggregated class-level vector used for few-shot classification, with `id` corresponding to a class identifier.
-data class PrototypeEmbedding(
-    val id: String,
-    val date: Long,
-    val embeddings: FloatArray
-)
