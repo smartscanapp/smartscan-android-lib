@@ -1,4 +1,7 @@
-package com.fpf.smartscansdk.core.embeddings
+package com.fpf.smartscansdk.core.classification
+
+import com.fpf.smartscansdk.core.embeddings.StoredEmbedding
+import com.fpf.smartscansdk.core.embeddings.dot
 
 data class ClassificationResult(val classId: Long?, val similarity: Float )
 
