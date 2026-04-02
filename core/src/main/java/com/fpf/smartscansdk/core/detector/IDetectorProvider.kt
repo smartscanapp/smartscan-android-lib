@@ -1,4 +1,4 @@
-package com.fpf.smartscansdk.core.embeddings
+package com.fpf.smartscansdk.core.detector
 
 interface IDetectorProvider<T> {
     fun closeSession() = Unit

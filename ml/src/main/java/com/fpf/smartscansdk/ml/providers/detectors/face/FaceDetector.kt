@@ -4,7 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.core.graphics.scale
-import com.fpf.smartscansdk.core.embeddings.IDetectorProvider
+import com.fpf.smartscansdk.core.detector.IDetectorProvider
 import com.fpf.smartscansdk.core.media.nms
 import com.fpf.smartscansdk.ml.models.loaders.FileOnnxLoader
 import com.fpf.smartscansdk.ml.models.OnnxModel
