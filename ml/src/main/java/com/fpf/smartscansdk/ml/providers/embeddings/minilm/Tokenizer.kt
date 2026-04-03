@@ -2,6 +2,8 @@ package com.fpf.smartscansdk.ml.providers.embeddings.minilm
 
 import android.content.Context
 import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.File
 import java.io.InputStreamReader
 import kotlin.collections.toLongArray
 
@@ -16,27 +18,35 @@ class MiniLmTokenizer(
 ) {
 
     companion object {
-         fun fromRawResources(context: Context, vocabResId: Int, configResId: Int): MiniLmTokenizer {
-                val vocabMap: Map<String, Int> = context.resources.openRawResource(vocabResId)
-                    .bufferedReader()
-                    .useLines { lines -> lines.mapIndexed { idx, token -> token to idx }.toMap() }
 
-
-                val configText = context.resources.openRawResource(configResId).use { input ->
-                    InputStreamReader(input, "UTF-8").readText()
-                }
-                val configJson = JSONObject(configText)
-
-                return MiniLmTokenizer(
-                    vocab = vocabMap,
-                    maxLen = configJson.getInt("max_length"),
-                    doLowerCase = configJson.optBoolean("do_lower_case", true),
-                    unkToken = configJson.optString("unk_token", "[UNK]"),
-                    clsToken = configJson.optString("cls_token", "[CLS]"),
-                    sepToken = configJson.optString("sep_token", "[SEP]"),
-                    padToken = configJson.optString("pad_token", "[PAD]")
-                )
+        private fun loadFromSources(vocabReader: BufferedReader, configReader: BufferedReader): MiniLmTokenizer {
+            val vocabMap: Map<String, Int> = vocabReader.useLines { lines ->
+                lines.mapIndexed { idx, token -> token to idx }.toMap()
             }
+
+            val configText = configReader.use { it.readText() }
+            val configJson = JSONObject(configText)
+
+            return MiniLmTokenizer(
+                vocab = vocabMap,
+                maxLen = configJson.getInt("max_length"),
+                doLowerCase = configJson.optBoolean("do_lower_case", true),
+                unkToken = configJson.optString("unk_token", "[UNK]"),
+                clsToken = configJson.optString("cls_token", "[CLS]"),
+                sepToken = configJson.optString("sep_token", "[SEP]"),
+                padToken = configJson.optString("pad_token", "[PAD]")
+            )
+        }
+
+        fun load(context: Context, vocabResId: Int, configResId: Int): MiniLmTokenizer {
+            return loadFromSources(
+                context.resources.openRawResource(vocabResId).bufferedReader(),
+                InputStreamReader(context.resources.openRawResource(configResId), "UTF-8").buffered()
+            )
+        }
+        fun load(vocabFile: File, configFile: File): MiniLmTokenizer {
+            return loadFromSources(vocabFile.bufferedReader(), configFile.bufferedReader())
+        }
     }
 
     private fun preprocess(text: String): String {

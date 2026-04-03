@@ -3,43 +3,54 @@ package com.fpf.smartscansdk.ml.providers.embeddings.clip
 import android.content.Context
 import android.util.JsonReader
 import java.io.BufferedReader
+import java.io.File
+import java.io.InputStream
 import java.io.InputStreamReader
 
 class ClipTokenizer(
     private val encoder: Map<String, Int>,
     private val bpeRanks: Map<Pair<String, String>, Int>,
 ) {
+        companion object {
 
-    companion object {
-        fun fromRawResources(context: Context, vocabResId: Int, mergesResId: Int): ClipTokenizer {
-            val resources = context.resources
-            val encoder = hashMapOf<String, Int>().apply {
-                resources.openRawResource(vocabResId).use {
-                    val reader = JsonReader(InputStreamReader(it, "UTF-8"))
+            fun load(context: Context, vocabResId: Int, mergesResId: Int): ClipTokenizer {
+                val resources = context.resources
+                val encoder = readEncoder(resources.openRawResource(vocabResId))
+                val bpeRanks = readBpeRanks(resources.openRawResource(mergesResId))
+                return ClipTokenizer(encoder, bpeRanks)
+            }
+
+            fun load(vocabFile: File, mergesFile: File): ClipTokenizer {
+                val encoder = readEncoder(vocabFile.inputStream())
+                val bpeRanks = readBpeRanks(mergesFile.inputStream())
+                return ClipTokenizer(encoder, bpeRanks)
+            }
+
+            private fun readEncoder(stream: InputStream): Map<String, Int> {
+                val map = hashMapOf<String, Int>()
+                stream.use { s ->
+                    val reader = JsonReader(InputStreamReader(s, "UTF-8"))
                     reader.beginObject()
                     while (reader.hasNext()) {
-                        put(reader.nextName().replace("</w>", " "), reader.nextInt())
+                        map[reader.nextName().replace("</w>", " ")] = reader.nextInt()
                     }
                     reader.close()
                 }
+                return map
             }
 
-            val bpeRanks = hashMapOf<Pair<String, String>, Int>().apply {
-                resources.openRawResource(mergesResId).use { stream ->
-                    BufferedReader(InputStreamReader(stream)).useLines { seq ->
-                        seq.drop(1).forEachIndexed { i, s ->
-                            val parts = s.split(" ")
-                            put(parts[0] to parts[1].replace("</w>", " "), i)
+            private fun readBpeRanks(stream: InputStream): Map<Pair<String, String>, Int> {
+                val map = hashMapOf<Pair<String, String>, Int>()
+                stream.use { s ->
+                    BufferedReader(InputStreamReader(s)).useLines { lines ->
+                        lines.drop(1).forEachIndexed { i, line ->
+                            val parts = line.split(" ")
+                            map[parts[0] to parts[1].replace("</w>", " ")] = i
                         }
                     }
                 }
+                return map
             }
-
-            return ClipTokenizer(
-                encoder = encoder,
-                bpeRanks = bpeRanks
-            )
-        }
     }
     private val encodeRegex = Regex("""<\|startoftext\|>|<\|endoftext\|>|'s|'t|'re|'ve|'m|'ll|'d|[\p{L}]+|[\p{N}]|[^\s\p{L}\p{N}]+""")
 

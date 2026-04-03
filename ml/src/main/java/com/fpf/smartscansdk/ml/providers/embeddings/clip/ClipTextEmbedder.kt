@@ -25,7 +25,7 @@ class ClipTextEmbedder(
         is FilePath -> OnnxModel(FileOnnxLoader(modelSource.path))
         is ResourceId -> OnnxModel(ResourceOnnxLoader(context.resources, modelSource.resId))
     }
-    private val tokenizer = ClipTokenizer.fromRawResources(context, R.raw.vocab, R.raw.merges)
+    private val tokenizer = ClipTokenizer.load(context, R.raw.vocab, R.raw.merges)
     private val tokenBOS = 49406
     private val tokenEOS = 49407
 
