@@ -1,8 +1,6 @@
 package com.fpf.smartscansdk.ml.providers.embeddings.minilm
 
 import android.content.Context
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.InputStreamReader
 import kotlin.collections.toLongArray
@@ -19,13 +17,11 @@ class MiniLmTokenizer(
 
     companion object {
          fun fromRawResources(context: Context, vocabResId: Int, configResId: Int): MiniLmTokenizer {
-                // Load vocab
                 val vocabMap: Map<String, Int> = context.resources.openRawResource(vocabResId)
                     .bufferedReader()
                     .useLines { lines -> lines.mapIndexed { idx, token -> token to idx }.toMap() }
 
 
-                // Load config
                 val configText = context.resources.openRawResource(configResId).use { input ->
                     InputStreamReader(input, "UTF-8").readText()
                 }
