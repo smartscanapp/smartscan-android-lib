@@ -2,8 +2,6 @@ package com.fpf.smartscansdk.ml.providers.embeddings.clip
 
 import android.app.Application
 import android.content.Context
-import android.content.res.Resources
-import android.util.JsonReader
 import com.fpf.smartscansdk.core.embeddings.TextEmbeddingProvider
 import com.fpf.smartscansdk.ml.R
 import com.fpf.smartscansdk.core.embeddings.normalizeL2
@@ -16,10 +14,7 @@ import com.fpf.smartscansdk.ml.models.loaders.FilePath
 import com.fpf.smartscansdk.ml.models.loaders.ModelSource
 import com.fpf.smartscansdk.ml.models.loaders.ResourceId
 import kotlinx.coroutines.*
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import java.nio.LongBuffer
-import java.util.*
 
 class ClipTextEmbedder(
     private val context: Context,
@@ -30,10 +25,7 @@ class ClipTextEmbedder(
         is FilePath -> OnnxModel(FileOnnxLoader(modelSource.path))
         is ResourceId -> OnnxModel(ResourceOnnxLoader(context.resources, modelSource.resId))
     }
-
-    private val tokenizerVocab: Map<String, Int> = getVocab(context.resources)
-    private val tokenizerMerges: HashMap<Pair<String, String>, Int> = getMerges(context.resources)
-    private val tokenizer = ClipTokenizer(tokenizerVocab, tokenizerMerges)
+    private val tokenizer = ClipTokenizer.fromRawResources(context, R.raw.vocab, R.raw.merges)
     private val tokenBOS = 49406
     private val tokenEOS = 49407
 
@@ -87,25 +79,5 @@ class ClipTextEmbedder(
         (model as? AutoCloseable)?.close()
     }
 
-    private fun getVocab(resources: Resources): Map<String, Int> =
-        hashMapOf<String, Int>().apply {
-            resources.openRawResource(R.raw.vocab).use {
-                val reader = JsonReader(InputStreamReader(it, "UTF-8"))
-                reader.beginObject()
-                while (reader.hasNext()) put(reader.nextName().replace("</w>", " "), reader.nextInt())
-                reader.close()
-            }
-        }
 
-    private fun getMerges(resources: Resources): HashMap<Pair<String, String>, Int> =
-        hashMapOf<Pair<String, String>, Int>().apply {
-            resources.openRawResource(R.raw.merges).use { stream ->
-                BufferedReader(InputStreamReader(stream)).useLines { seq ->
-                    seq.drop(1).forEachIndexed { i, s ->
-                        val parts = s.split(" ")
-                        put(parts[0] to parts[1].replace("</w>", " "), i)
-                    }
-                }
-            }
-        }
 }
