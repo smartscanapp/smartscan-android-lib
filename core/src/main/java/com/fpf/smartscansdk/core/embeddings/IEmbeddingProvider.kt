@@ -12,7 +12,8 @@ interface IEmbeddingProvider<T> {
     suspend fun embedBatch(data: List<T>): List<FloatArray>
 }
 
-
-typealias TextEmbeddingProvider = IEmbeddingProvider<String>
+interface TextEmbeddingProvider : IEmbeddingProvider<String> {
+    val maxTokens: Int
+}
 typealias ImageEmbeddingProvider = IEmbeddingProvider<Bitmap>
 

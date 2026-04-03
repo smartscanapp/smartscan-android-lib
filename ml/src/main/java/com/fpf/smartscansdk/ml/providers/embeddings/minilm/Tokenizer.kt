@@ -33,7 +33,7 @@ class MiniLmTokenizer(
 
                 return MiniLmTokenizer(
                     vocab = vocabMap,
-                    maxLen = configJson.optInt("max_length", 128),
+                    maxLen = configJson.getInt("max_length"),
                     doLowerCase = configJson.optBoolean("do_lower_case", true),
                     unkToken = configJson.optString("unk_token", "[UNK]"),
                     clsToken = configJson.optString("cls_token", "[CLS]"),

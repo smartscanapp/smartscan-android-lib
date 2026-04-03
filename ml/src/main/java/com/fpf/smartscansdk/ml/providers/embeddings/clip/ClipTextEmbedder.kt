@@ -21,11 +21,9 @@ import java.io.InputStreamReader
 import java.nio.LongBuffer
 import java.util.*
 
-
-// Using ModelSource enables using with bundle model or local model which has been downloaded
 class ClipTextEmbedder(
     private val context: Context,
-    modelSource: ModelSource
+    modelSource: ModelSource,
 ) : TextEmbeddingProvider {
 
     private val model: OnnxModel = when(modelSource){
@@ -40,6 +38,8 @@ class ClipTextEmbedder(
     private val tokenEOS = 49407
 
     override val embeddingDim: Int = 512
+    override val maxTokens: Int = 77
+
     private var closed = false
 
     override suspend fun initialize() = model.loadModel()
@@ -50,15 +50,15 @@ class ClipTextEmbedder(
         if (!isInitialized()) throw IllegalStateException("Model not initialized")
 
         val clean = Regex("[^A-Za-z0-9 ]").replace(data, "").lowercase()
-        var tokens = (mutableListOf(tokenBOS) + tokenizer.encode(clean) + tokenEOS).take(77).toMutableList()
-        if (tokens.size < 77) tokens += List(77 - tokens.size) { 0 }
+        var tokens = (mutableListOf(tokenBOS) + tokenizer.encode(clean) + tokenEOS).take(maxTokens).toMutableList()
+        if (tokens.size < maxTokens) tokens += List(maxTokens - tokens.size) { 0 }
 
 
-        val inputIds = LongBuffer.allocate(1 * 77).apply {
+        val inputIds = LongBuffer.allocate(1 * maxTokens).apply {
             tokens.forEach { put(it.toLong()) }
             rewind()
         }
-        val inputShape = longArrayOf(1, 77)
+        val inputShape = longArrayOf(1, maxTokens.toLong())
         val inputName = model.getInputNames()?.firstOrNull() ?: throw IllegalStateException("Model inputs not available")
         val output = model.run(mapOf(inputName to TensorData.LongBufferTensor(inputIds, inputShape)))
         normalizeL2((output.values.first() as Array<FloatArray>)[0])

@@ -19,7 +19,8 @@ import com.fpf.smartscansdk.ml.R
 class MiniLMTextEmbedder(
     private val context: Context,
     modelSource: ModelSource,
-) : TextEmbeddingProvider {
+    override val maxTokens: Int, // required as param because sentence transformer models can be exported with different token lengths
+    ) : TextEmbeddingProvider {
     private val model: OnnxModel = when (modelSource) {
         is FilePath -> OnnxModel(FileOnnxLoader(modelSource.path))
         is ResourceId -> OnnxModel(ResourceOnnxLoader(context.resources, modelSource.resId))
@@ -27,7 +28,7 @@ class MiniLMTextEmbedder(
 
     private var tokenizer = MiniLmTokenizer.fromRawResources(context, R.raw.minilm_vocab,  R.raw.minilm_tokenizer_config)
     private var closed = false
-    override val embeddingDim: Int = 384 // MiniLM-L6-v2 dimension
+    override val embeddingDim: Int = 384
 
     override suspend fun initialize()  {
         model.loadModel()
@@ -38,11 +39,10 @@ class MiniLMTextEmbedder(
     override suspend fun embed(data: String): FloatArray = withContext(Dispatchers.Default) {
         if (!isInitialized()) throw IllegalStateException("Model not initialized")
 
-        val maxLen = 128  // must match ONNX export
         val (rawIds, rawMask) = tokenizer.encode(data)
-        val inputIds = rawIds.copyOfRange(0, maxLen)
-        val attentionMask = rawMask.copyOfRange(0, maxLen)
-        val inputShape = longArrayOf(1, maxLen.toLong())
+        val inputIds = rawIds.copyOfRange(0, maxTokens)
+        val attentionMask = rawMask.copyOfRange(0, maxTokens)
+        val inputShape = longArrayOf(1, maxTokens.toLong())
         val inputIdsTensor = TensorData.LongBufferTensor(LongBuffer.wrap(inputIds), inputShape)
         val attentionMaskTensor = TensorData.LongBufferTensor(LongBuffer.wrap(attentionMask), inputShape)
 
