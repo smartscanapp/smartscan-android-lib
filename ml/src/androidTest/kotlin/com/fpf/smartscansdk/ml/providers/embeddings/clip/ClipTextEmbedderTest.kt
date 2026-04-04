@@ -24,6 +24,11 @@ class ClipTextEmbedderInstrumentedTest {
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
         mockkStatic(OnnxTensor::class)
+        mockkObject(ClipTokenizer.Companion)
+
+        val mockTokenizer = mockk<ClipTokenizer>(relaxed = true)
+        every { mockTokenizer.encode(any()) } returns mutableListOf(1, 2, 3)
+        every { ClipTokenizer.load(any(), any(), any()) } returns mockTokenizer
     }
 
     @After

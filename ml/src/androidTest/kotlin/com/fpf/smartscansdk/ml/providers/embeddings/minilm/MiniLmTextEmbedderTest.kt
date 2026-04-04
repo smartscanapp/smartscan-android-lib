@@ -6,6 +6,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.fpf.smartscansdk.ml.models.TensorData
 import com.fpf.smartscansdk.ml.models.OnnxModel
+import com.fpf.smartscansdk.ml.providers.embeddings.clip.ClipTokenizer
 import io.mockk.*
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -24,6 +25,11 @@ class MiniLmTextEmbedderTest {
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
         mockkStatic(OnnxTensor::class)
+        mockkObject(MiniLmTokenizer.Companion)
+
+        val mockTokenizer = mockk<MiniLmTokenizer>(relaxed = true)
+        every { mockTokenizer.encode(any()) } returns Pair(longArrayOf(1,2,3), longArrayOf(1,1,1))
+        every { MiniLmTokenizer.load(any(), any(), any()) } returns mockTokenizer
     }
 
     @After
