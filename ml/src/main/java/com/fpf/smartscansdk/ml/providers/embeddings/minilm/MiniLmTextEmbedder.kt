@@ -22,7 +22,7 @@ class MiniLMTextEmbedder(
     @RawRes modelResId: Int? = null,
     @RawRes vocabResId: Int? = null,
     @RawRes mergesResId: Int? = null,
-    override val maxTokens: Int, // required as param because sentence transformer models can be exported with different token lengths
+    override val maxTokens: Int = 128, // used as param because sentence transformer models can be exported with different token lengths
     ) : TextEmbeddingProvider {
     private val model: OnnxModel = if (modelResId != null) {
         OnnxModel(ResourceOnnxLoader(context.resources, modelResId))
