@@ -67,12 +67,12 @@ class OnnxModelInstrumentedTest {
     }
 
     @Test
-    fun `isLoaded returns true when session is set`() {
+    fun isLoadedTest() {
         assertTrue(model.isLoaded())
     }
 
     @Test
-    fun `run returns mapped output`() = runBlocking {
+    fun runInferenceTest() = runBlocking {
         // Prepare a fake FloatBuffer for input
         val fakeBuffer = FloatBuffer.allocate(1)
         fakeBuffer.put(1.0f)
@@ -109,7 +109,7 @@ class OnnxModelInstrumentedTest {
 
 
     @Test
-    fun `getInputNames returns session input names`() {
+    fun getInputNamesTest() {
         // Use a LinkedHashSet to keep deterministic order
         every { session.inputNames } returns linkedSetOf("input1", "input2")
 
@@ -118,7 +118,7 @@ class OnnxModelInstrumentedTest {
     }
 
     @Test
-    fun `close closes session`() {
+    fun closeOnnxSessionTest() {
         model.close()
         // allow at least one close call since teardown may also close
         verify(atLeast = 1) { session.close() }
@@ -126,7 +126,7 @@ class OnnxModelInstrumentedTest {
     }
 
     @Test
-    fun `loadModel loads bytes and creates session`() = runBlocking {
+    fun loadModelTest() = runBlocking {
         val bytes = "fake_model".toByteArray()
         coEvery { loader.load() } returns bytes
 

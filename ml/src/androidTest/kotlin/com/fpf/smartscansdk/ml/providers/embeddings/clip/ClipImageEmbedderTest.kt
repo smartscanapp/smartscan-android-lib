@@ -45,7 +45,7 @@ class ClipImageEmbedderInstrumentedTest {
     }
 
     @Test
-    fun `initialize calls model loadModel and sets initialized`() = runBlocking {
+    fun modelInitializationTest() = runBlocking {
         val embedder = ClipImageEmbedder(context, 0)
 
         // replace private model with a mock
@@ -64,7 +64,7 @@ class ClipImageEmbedderInstrumentedTest {
     }
 
     @Test
-    fun `embed returns normalized vector of expected dimension`() = runBlocking {
+    fun embeddingTest() = runBlocking {
         val embedder = ClipImageEmbedder(context, 0)
 
         // mock internal model
@@ -98,7 +98,7 @@ class ClipImageEmbedderInstrumentedTest {
     }
 
     @Test
-    fun `embedBatch returns embeddings for all items`() = runBlocking {
+    fun batchEmbeddingTest() = runBlocking {
         val embedder = ClipImageEmbedder(context, 0)
 
         val mockModel = mockk<OnnxModel>(relaxed = true)
@@ -127,7 +127,7 @@ class ClipImageEmbedderInstrumentedTest {
     }
 
     @Test
-    fun `closeSession closes model once`() {
+    fun closeSessionTest() {
         val embedder = ClipImageEmbedder(context, 0)
         val mockModel = mockk<OnnxModel>(relaxed = true)
         val modelField = embedder::class.java.getDeclaredField("model")

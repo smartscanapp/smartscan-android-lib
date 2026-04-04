@@ -32,7 +32,7 @@ class MiniLmTextEmbedderTest {
     }
 
     @Test
-    fun `initialize calls model loadModel and sets initialized`() = runBlocking {
+    fun modelInitializationTest() = runBlocking {
         val embedder = MiniLMTextEmbedder(context, 0, 1, 2, maxTokens = 128)
         val mockModel = mockk<OnnxModel>(relaxed = true)
         coEvery { mockModel.loadModel() } answers { every { mockModel.isLoaded() } returns true }
@@ -47,7 +47,7 @@ class MiniLmTextEmbedderTest {
     }
 
     @Test
-    fun `embed returns normalized vector of expected dimension`() = runBlocking {
+    fun embeddingTest() = runBlocking {
         val embedder = MiniLMTextEmbedder(context, 0, 1, 2, maxTokens = 128)
         val mockModel = mockk<OnnxModel>(relaxed = true)
         every { mockModel.isLoaded() } returns true
@@ -73,7 +73,7 @@ class MiniLmTextEmbedderTest {
     }
 
     @Test
-    fun `embedBatch returns embeddings for all items`() = runBlocking {
+    fun batchEmbeddingTest() = runBlocking {
         val embedder = MiniLMTextEmbedder(context, 0, 1, 2, maxTokens = 128)
         val mockModel = mockk<OnnxModel>(relaxed = true)
         every { mockModel.isLoaded() } returns true
@@ -99,7 +99,7 @@ class MiniLmTextEmbedderTest {
     }
 
     @Test
-    fun `closeSession closes model once`() {
+    fun closeSessionTest() {
         val embedder = MiniLMTextEmbedder(context, 0, 1, 2, maxTokens = 128)
         val mockModel = mockk<OnnxModel>(relaxed = true)
         val field = embedder::class.java.getDeclaredField("model")
@@ -115,7 +115,7 @@ class MiniLmTextEmbedderTest {
     }
 
     @Test
-    fun `embed handles strings longer than max length tokens`() = runBlocking {
+    fun maxTokenHandlingTest() = runBlocking {
         val embedder = MiniLMTextEmbedder(context, 0, 1, 2, maxTokens = 128)
 
         val mockModel = mockk<OnnxModel>(relaxed = true)
