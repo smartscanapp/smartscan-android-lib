@@ -2,30 +2,49 @@ package com.fpf.smartscansdk.ml.providers.embeddings.clip
 
 import android.app.Application
 import android.content.Context
+import androidx.annotation.RawRes
 import com.fpf.smartscansdk.core.embeddings.TextEmbeddingProvider
-import com.fpf.smartscansdk.ml.R
 import com.fpf.smartscansdk.core.embeddings.normalizeL2
+import com.fpf.smartscansdk.core.models.ModelManager
+import com.fpf.smartscansdk.core.models.ModelName
+import com.fpf.smartscansdk.core.models.ModelRegistry
 import com.fpf.smartscansdk.ml.models.OnnxModel
 import com.fpf.smartscansdk.ml.models.loaders.FileOnnxLoader
 import com.fpf.smartscansdk.ml.models.loaders.ResourceOnnxLoader
 import com.fpf.smartscansdk.core.processors.BatchProcessor
 import com.fpf.smartscansdk.ml.models.TensorData
-import com.fpf.smartscansdk.ml.models.loaders.FilePath
-import com.fpf.smartscansdk.ml.models.loaders.ModelSource
-import com.fpf.smartscansdk.ml.models.loaders.ResourceId
 import kotlinx.coroutines.*
+import java.io.File
 import java.nio.LongBuffer
 
+// ResIds can be provided for bundled models
+// If not provided the model registry paths are used (throws if model not downloaded)
 class ClipTextEmbedder(
     private val context: Context,
-    modelSource: ModelSource,
-) : TextEmbeddingProvider {
+    @RawRes modelResId: Int? = null,
+    @RawRes vocabResId: Int? = null,
+    @RawRes mergesResId: Int? = null,
+    ) : TextEmbeddingProvider {
 
-    private val model: OnnxModel = when(modelSource){
-        is FilePath -> OnnxModel(FileOnnxLoader(modelSource.path))
-        is ResourceId -> OnnxModel(ResourceOnnxLoader(context.resources, modelSource.resId))
+    private val model: OnnxModel = if (modelResId != null) {
+        OnnxModel(ResourceOnnxLoader(context.resources, modelResId))
+    } else {
+        if (!ModelManager.modelExists(context, ModelName.CLIP_VIT_B_32_TEXT)) throw IllegalStateException("Model not downloaded")
+        val modelInfo = ModelRegistry[ModelName.CLIP_VIT_B_32_TEXT]!!
+        val modelDir = ModelManager.getModelFile(context, modelInfo = modelInfo)
+        val modelFile = File(modelDir, modelInfo.resourceFiles!![0])
+        OnnxModel(FileOnnxLoader(modelFile.absolutePath))
     }
-    private val tokenizer = ClipTokenizer.load(context, R.raw.vocab, R.raw.merges)
+
+    private val tokenizer = if (vocabResId != null && mergesResId != null) {
+        ClipTokenizer.load(context, vocabResId, mergesResId)
+    } else {
+        val modelInfo = ModelRegistry[ModelName.CLIP_VIT_B_32_TEXT]!!
+        val modelDir = ModelManager.getModelFile(context, modelInfo = modelInfo)
+        val vocabFile = File(modelDir, modelInfo.resourceFiles!![1])
+        val mergesFile = File(modelDir, modelInfo.resourceFiles!![2])
+        ClipTokenizer.load(vocabFile, mergesFile)
+    }
     private val tokenBOS = 49406
     private val tokenEOS = 49407
 
@@ -78,6 +97,4 @@ class ClipTextEmbedder(
         closed = true
         (model as? AutoCloseable)?.close()
     }
-
-
 }

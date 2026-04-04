@@ -3,15 +3,16 @@ package com.fpf.smartscansdk.ml.providers.detectors.face
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
+import androidx.annotation.RawRes
 import androidx.core.graphics.scale
 import com.fpf.smartscansdk.core.detector.IDetectorProvider
 import com.fpf.smartscansdk.core.media.nms
+import com.fpf.smartscansdk.core.models.ModelManager
+import com.fpf.smartscansdk.core.models.ModelName
+import com.fpf.smartscansdk.core.models.ModelRegistry
 import com.fpf.smartscansdk.ml.models.loaders.FileOnnxLoader
 import com.fpf.smartscansdk.ml.models.OnnxModel
 import com.fpf.smartscansdk.ml.models.TensorData
-import com.fpf.smartscansdk.ml.models.loaders.FilePath
-import com.fpf.smartscansdk.ml.models.loaders.ModelSource
-import com.fpf.smartscansdk.ml.models.loaders.ResourceId
 import com.fpf.smartscansdk.ml.models.loaders.ResourceOnnxLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -22,13 +23,17 @@ import java.nio.FloatBuffer
 
 class FaceDetector(
     context: Context,
-    modelSource: ModelSource,
+    @RawRes modelResId: Int? = null,
     private val confThreshold: Float = 0.5f,
     private val nmsThreshold: Float = 0.3f
 ) : IDetectorProvider<Bitmap> {
-    private val model: OnnxModel = when(modelSource){
-        is FilePath -> OnnxModel(FileOnnxLoader(modelSource.path))
-        is ResourceId -> OnnxModel(ResourceOnnxLoader(context.resources, modelSource.resId))
+    private val model: OnnxModel = if (modelResId != null) {
+        OnnxModel(ResourceOnnxLoader(context.resources, modelResId))
+    } else {
+        if (!ModelManager.modelExists(context, ModelName.ULTRA_LIGHT_FACE_DETECTOR)) throw IllegalStateException("Model not downloaded")
+        val modelInfo = ModelRegistry[ModelName.ULTRA_LIGHT_FACE_DETECTOR]!!
+        val modelFile = ModelManager.getModelFile(context, modelInfo = modelInfo)
+        OnnxModel(FileOnnxLoader(modelFile.absolutePath))
     }
 
     companion object {

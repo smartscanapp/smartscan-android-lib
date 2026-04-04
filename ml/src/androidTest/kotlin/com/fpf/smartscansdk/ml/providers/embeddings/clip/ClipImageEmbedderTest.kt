@@ -7,8 +7,6 @@ import android.graphics.Bitmap
 import androidx.test.core.app.ApplicationProvider
 import com.fpf.smartscansdk.ml.models.OnnxModel
 import com.fpf.smartscansdk.ml.models.TensorData
-import com.fpf.smartscansdk.ml.models.loaders.ResourceId
-import com.fpf.smartscansdk.ml.providers.embeddings.clip.ClipImageEmbedder
 import com.fpf.smartscansdk.ml.providers.embeddings.clip.ClipImageEmbedder.Companion.IMAGE_SIZE_X
 import com.fpf.smartscansdk.ml.providers.embeddings.clip.ClipImageEmbedder.Companion.IMAGE_SIZE_Y
 import io.mockk.*
@@ -48,7 +46,7 @@ class ClipImageEmbedderInstrumentedTest {
 
     @Test
     fun `initialize calls model loadModel and sets initialized`() = runBlocking {
-        val embedder = ClipImageEmbedder(context, ResourceId(0))
+        val embedder = ClipImageEmbedder(context, 0)
 
         // replace private model with a mock
         val mockModel = mockk<OnnxModel>(relaxed = true)
@@ -67,7 +65,7 @@ class ClipImageEmbedderInstrumentedTest {
 
     @Test
     fun `embed returns normalized vector of expected dimension`() = runBlocking {
-        val embedder = ClipImageEmbedder(context, ResourceId(0))
+        val embedder = ClipImageEmbedder(context, 0)
 
         // mock internal model
         val mockModel = mockk<OnnxModel>(relaxed = true)
@@ -101,7 +99,7 @@ class ClipImageEmbedderInstrumentedTest {
 
     @Test
     fun `embedBatch returns embeddings for all items`() = runBlocking {
-        val embedder = ClipImageEmbedder(context, ResourceId(0))
+        val embedder = ClipImageEmbedder(context, 0)
 
         val mockModel = mockk<OnnxModel>(relaxed = true)
         every { mockModel.isLoaded() } returns true
@@ -130,7 +128,7 @@ class ClipImageEmbedderInstrumentedTest {
 
     @Test
     fun `closeSession closes model once`() {
-        val embedder = ClipImageEmbedder(context, ResourceId(0))
+        val embedder = ClipImageEmbedder(context, 0)
         val mockModel = mockk<OnnxModel>(relaxed = true)
         val modelField = embedder::class.java.getDeclaredField("model")
         modelField.isAccessible = true

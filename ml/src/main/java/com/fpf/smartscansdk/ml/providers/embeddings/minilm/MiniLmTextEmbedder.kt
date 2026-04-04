@@ -2,31 +2,48 @@ package com.fpf.smartscansdk.ml.providers.embeddings.minilm
 
 import android.app.Application
 import android.content.Context
+import androidx.annotation.RawRes
 import com.fpf.smartscansdk.core.embeddings.TextEmbeddingProvider
 import com.fpf.smartscansdk.core.embeddings.normalizeL2
+import com.fpf.smartscansdk.core.models.ModelManager
+import com.fpf.smartscansdk.core.models.ModelName
+import com.fpf.smartscansdk.core.models.ModelRegistry
 import com.fpf.smartscansdk.ml.models.OnnxModel
 import com.fpf.smartscansdk.ml.models.loaders.FileOnnxLoader
 import com.fpf.smartscansdk.ml.models.loaders.ResourceOnnxLoader
 import com.fpf.smartscansdk.ml.models.TensorData
-import com.fpf.smartscansdk.ml.models.loaders.FilePath
-import com.fpf.smartscansdk.ml.models.loaders.ModelSource
-import com.fpf.smartscansdk.ml.models.loaders.ResourceId
 import kotlinx.coroutines.*
 import java.nio.LongBuffer
 import com.fpf.smartscansdk.core.processors.BatchProcessor
-import com.fpf.smartscansdk.ml.R
+import java.io.File
 
 class MiniLMTextEmbedder(
     private val context: Context,
-    modelSource: ModelSource,
+    @RawRes modelResId: Int? = null,
+    @RawRes vocabResId: Int? = null,
+    @RawRes mergesResId: Int? = null,
     override val maxTokens: Int, // required as param because sentence transformer models can be exported with different token lengths
     ) : TextEmbeddingProvider {
-    private val model: OnnxModel = when (modelSource) {
-        is FilePath -> OnnxModel(FileOnnxLoader(modelSource.path))
-        is ResourceId -> OnnxModel(ResourceOnnxLoader(context.resources, modelSource.resId))
+    private val model: OnnxModel = if (modelResId != null) {
+        OnnxModel(ResourceOnnxLoader(context.resources, modelResId))
+    } else {
+        if (!ModelManager.modelExists(context, ModelName.ALL_MINILM_L6_V2)) throw IllegalStateException("Model not downloaded")
+        val modelInfo = ModelRegistry[ModelName.ALL_MINILM_L6_V2]!!
+        val modelDir = ModelManager.getModelFile(context, modelInfo = modelInfo)
+        val modelFile = File(modelDir, modelInfo.resourceFiles!![0])
+        OnnxModel(FileOnnxLoader(modelFile.absolutePath))
     }
 
-    private var tokenizer = MiniLmTokenizer.load(context, R.raw.minilm_vocab,  R.raw.minilm_tokenizer_config)
+    private val tokenizer = if (vocabResId != null && mergesResId != null) {
+        MiniLmTokenizer.load(context, vocabResId, mergesResId)
+    } else {
+        val modelInfo = ModelRegistry[ModelName.ALL_MINILM_L6_V2]!!
+        val modelDir = ModelManager.getModelFile(context, modelInfo = modelInfo)
+        val vocabFile = File(modelDir, modelInfo.resourceFiles!![1])
+        val configFile = File(modelDir, modelInfo.resourceFiles!![2])
+        MiniLmTokenizer.load(vocabFile, configFile)
+    }
+
     private var closed = false
     override val embeddingDim: Int = 384
 
