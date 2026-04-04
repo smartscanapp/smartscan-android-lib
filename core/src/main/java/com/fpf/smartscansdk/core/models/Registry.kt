@@ -6,7 +6,7 @@ val ModelRegistry  =  mapOf<ModelName, ModelInfo>(
         url="https://github.com/dev-diaries41/smartscan-models/releases/download/1.0.1/minilm_sentence_transformer_quant.zip",
         path="all_minilm_l6_v2",
         name=ModelName.ALL_MINILM_L6_V2,
-        resourceFiles=listOf("minilm_sentence_transformer_quant.onnx", "vocab.txt")
+        resourceFiles=listOf("minilm_sentence_transformer_quant.onnx", "vocab.txt", "config.json")
     ),
     ModelName.ALL_DISTIL_ROBERTA_V1 to ModelInfo(
         type= ModelType.TEXT_ENCODER,
