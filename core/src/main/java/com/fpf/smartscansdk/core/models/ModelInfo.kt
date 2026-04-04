@@ -11,8 +11,11 @@ enum class ModelName {
     ALL_DISTIL_ROBERTA_V1,
     CLIP_VIT_B_32_TEXT,
     CLIP_VIT_B_32_IMAGE,
-    DINOV2_SMALL
+    DINOV2_SMALL,
+    INCEPTION_RESNET_V1,
+    ULTRA_LIGHT_FACE_DETECTOR
 }
+
 data class ModelInfo(
     val type: ModelType,
     val url: String,

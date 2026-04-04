@@ -34,4 +34,16 @@ val ModelRegistry  =  mapOf<ModelName, ModelInfo>(
         path="dinov2_small_quant.onnx",
         name=ModelName.DINOV2_SMALL,
         ),
+    ModelName.INCEPTION_RESNET_V1 to ModelInfo(
+        type= ModelType.IMAGE_ENCODER,
+        url="https://github.com/dev-diaries41/smartscan-models/releases/download/1.0.1/inception_resnet_v1_quant.onnx",
+        path="inception_resnet_v1_quant.onnx",
+        name=ModelName.INCEPTION_RESNET_V1,
+    ),
+    ModelName.ULTRA_LIGHT_FACE_DETECTOR to ModelInfo(
+        type= ModelType.OBJECT_DETECTOR,
+        url="https://github.com/dev-diaries41/smartscan-models/releases/download/1.0.1/ultra_light_face_detector.onnx",
+        path="ultra_light_face_detector.onnx",
+        name=ModelName.ULTRA_LIGHT_FACE_DETECTOR,
+    ),
 )
