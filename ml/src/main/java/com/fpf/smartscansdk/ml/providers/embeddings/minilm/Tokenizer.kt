@@ -7,7 +7,7 @@ import java.io.File
 import java.io.InputStreamReader
 import kotlin.collections.toLongArray
 
-class MiniLmTokenizer(
+internal class MiniLmTokenizer(
     private val vocab: Map<String, Int>,
     private val maxLen: Int,
     private val doLowerCase: Boolean,

@@ -7,7 +7,7 @@ import java.io.File
 import java.io.InputStream
 import java.io.InputStreamReader
 
-class ClipTokenizer(
+internal class ClipTokenizer(
     private val encoder: Map<String, Int>,
     private val bpeRanks: Map<Pair<String, String>, Int>,
 ) {
