@@ -56,9 +56,7 @@ class MiniLMTextEmbedder(
     override suspend fun embed(data: String): FloatArray = withContext(Dispatchers.Default) {
         if (!isInitialized()) throw IllegalStateException("Model not initialized")
 
-        val (rawIds, rawMask) = tokenizer.encode(data)
-        val inputIds = rawIds.copyOfRange(0, maxTokens)
-        val attentionMask = rawMask.copyOfRange(0, maxTokens)
+        val (inputIds, attentionMask) = tokenizer.encode(data)
         val inputShape = longArrayOf(1, maxTokens.toLong())
         val inputIdsTensor = TensorData.LongBufferTensor(LongBuffer.wrap(inputIds), inputShape)
         val attentionMaskTensor = TensorData.LongBufferTensor(LongBuffer.wrap(attentionMask), inputShape)
