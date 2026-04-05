@@ -3,14 +3,11 @@ package com.fpf.smartscansdk.ml.providers.embeddings.clip
 import android.app.Application
 import android.content.Context
 import android.graphics.Bitmap
-import androidx.annotation.RawRes
 import androidx.core.graphics.get
 import com.fpf.smartscansdk.core.embeddings.ImageEmbeddingProvider
 import com.fpf.smartscansdk.core.embeddings.normalizeL2
 import com.fpf.smartscansdk.core.media.centerCrop
-import com.fpf.smartscansdk.core.models.ModelManager
-import com.fpf.smartscansdk.core.models.ModelName
-import com.fpf.smartscansdk.core.models.ModelRegistry
+import com.fpf.smartscansdk.core.models.ModelAssetSource
 import com.fpf.smartscansdk.core.processors.BatchProcessor
 import com.fpf.smartscansdk.ml.models.OnnxModel
 import com.fpf.smartscansdk.ml.models.TensorData
@@ -21,8 +18,10 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 
-// Using ModelSource enables using with bundle model or local model which has been downloaded
-class ClipImageEmbedder(private val context: Context, @RawRes modelResId: Int? = null) : ImageEmbeddingProvider {
+class ClipImageEmbedder(
+    private val context: Context,
+    modelSource: ModelAssetSource,
+) : ImageEmbeddingProvider {
     companion object {
         const val DIM_BATCH_SIZE = 1
         const val DIM_PIXEL_SIZE = 3
@@ -31,13 +30,9 @@ class ClipImageEmbedder(private val context: Context, @RawRes modelResId: Int? =
         val MEAN = floatArrayOf(0.48145467f, 0.4578275f, 0.40821072f)
         val STD  = floatArrayOf(0.26862955f, 0.2613026f, 0.2757771f)
     }
-    private val model: OnnxModel = if (modelResId != null) {
-        OnnxModel(ResourceOnnxLoader(context.resources, modelResId))
-    } else {
-        if (!ModelManager.modelExists(context, ModelName.CLIP_VIT_B_32_IMAGE)) throw IllegalStateException("Model not downloaded")
-        val modelInfo = ModelRegistry[ModelName.CLIP_VIT_B_32_IMAGE]!!
-        val modelFile = ModelManager.getModelFile(context, modelInfo = modelInfo)
-        OnnxModel(FileOnnxLoader(modelFile.absolutePath))
+    private val model: OnnxModel = when(modelSource) {
+        is ModelAssetSource.Resource -> OnnxModel(ResourceOnnxLoader(context.resources, modelSource.resId))
+        is ModelAssetSource.LocalFile -> OnnxModel(FileOnnxLoader(modelSource.file))
     }
 
     override val embeddingDim: Int = 512

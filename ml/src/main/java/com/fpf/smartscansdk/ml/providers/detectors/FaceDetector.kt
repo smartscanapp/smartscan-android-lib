@@ -3,13 +3,10 @@ package com.fpf.smartscansdk.ml.providers.detectors
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
-import androidx.annotation.RawRes
 import androidx.core.graphics.scale
 import com.fpf.smartscansdk.core.detector.IDetectorProvider
 import com.fpf.smartscansdk.core.media.nms
-import com.fpf.smartscansdk.core.models.ModelManager
-import com.fpf.smartscansdk.core.models.ModelName
-import com.fpf.smartscansdk.core.models.ModelRegistry
+import com.fpf.smartscansdk.core.models.ModelAssetSource
 import com.fpf.smartscansdk.ml.models.OnnxModel
 import com.fpf.smartscansdk.ml.models.TensorData
 import com.fpf.smartscansdk.ml.models.loaders.FileOnnxLoader
@@ -22,18 +19,10 @@ import java.nio.FloatBuffer
 
 class FaceDetector(
     context: Context,
-    @RawRes modelResId: Int? = null,
+    modelSource: ModelAssetSource,
     private val confThreshold: Float = 0.5f,
     private val nmsThreshold: Float = 0.3f
 ) : IDetectorProvider<Bitmap> {
-    private val model: OnnxModel = if (modelResId != null) {
-        OnnxModel(ResourceOnnxLoader(context.resources, modelResId))
-    } else {
-        if (!ModelManager.modelExists(context, ModelName.ULTRA_LIGHT_FACE_DETECTOR)) throw IllegalStateException("Model not downloaded")
-        val modelInfo = ModelRegistry[ModelName.ULTRA_LIGHT_FACE_DETECTOR]!!
-        val modelFile = ModelManager.getModelFile(context, modelInfo = modelInfo)
-        OnnxModel(FileOnnxLoader(modelFile.absolutePath))
-    }
 
     companion object {
         private const val TAG = "FaceDetector"
@@ -41,6 +30,11 @@ class FaceDetector(
         const val DIM_PIXEL_SIZE = 3
         const val IMAGE_SIZE_X = 320
         const val IMAGE_SIZE_Y = 240
+    }
+
+    private val model: OnnxModel = when(modelSource) {
+        is ModelAssetSource.Resource -> OnnxModel(ResourceOnnxLoader(context.resources, modelSource.resId))
+        is ModelAssetSource.LocalFile -> OnnxModel(FileOnnxLoader(modelSource.file))
     }
 
     override suspend fun initialize() = model.loadModel()
@@ -105,7 +99,7 @@ class FaceDetector(
                 val filteredScores = keepIndices.map { scoresList[it] }
                 return@withContext Pair(filteredScores, filteredBoxes)
             } else {
-                return@withContext Pair(emptyList<Float>(), emptyList<FloatArray>())
+                return@withContext Pair(emptyList(), emptyList())
             }
         }
 

@@ -2,12 +2,9 @@ package com.fpf.smartscansdk.ml.providers.embeddings.inception
 
 import android.content.Context
 import android.graphics.Bitmap
-import androidx.annotation.RawRes
 import com.fpf.smartscansdk.core.embeddings.ImageEmbeddingProvider
 import com.fpf.smartscansdk.core.media.centerCrop
-import com.fpf.smartscansdk.core.models.ModelManager
-import com.fpf.smartscansdk.core.models.ModelName
-import com.fpf.smartscansdk.core.models.ModelRegistry
+import com.fpf.smartscansdk.core.models.ModelAssetSource
 import com.fpf.smartscansdk.core.processors.BatchProcessor
 import com.fpf.smartscansdk.ml.models.TensorData
 import com.fpf.smartscansdk.ml.models.loaders.FileOnnxLoader
@@ -19,15 +16,11 @@ import java.nio.FloatBuffer
 
 class InceptionResnetFaceEmbedder(
     private val context: Context,
-    @RawRes modelResId: Int? = null
+    modelSource: ModelAssetSource,
 ) : ImageEmbeddingProvider {
-    private val model: OnnxModel = if (modelResId != null) {
-        OnnxModel(ResourceOnnxLoader(context.resources, modelResId))
-    } else {
-        if (!ModelManager.modelExists(context, ModelName.INCEPTION_RESNET_V1)) throw IllegalStateException("Model not downloaded")
-        val modelInfo = ModelRegistry[ModelName.INCEPTION_RESNET_V1]!!
-        val modelFile = ModelManager.getModelFile(context, modelInfo = modelInfo)
-        OnnxModel(FileOnnxLoader(modelFile.absolutePath))
+    private val model: OnnxModel = when(modelSource) {
+        is ModelAssetSource.Resource -> OnnxModel(ResourceOnnxLoader(context.resources, modelSource.resId))
+        is ModelAssetSource.LocalFile -> OnnxModel(FileOnnxLoader(modelSource.file))
     }
 
     companion object {

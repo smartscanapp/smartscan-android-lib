@@ -3,14 +3,11 @@ package com.fpf.smartscansdk.ml.providers.embeddings.dino
 import android.app.Application
 import android.content.Context
 import android.graphics.Bitmap
-import androidx.annotation.RawRes
 import androidx.core.graphics.get
 import com.fpf.smartscansdk.core.embeddings.ImageEmbeddingProvider
 import com.fpf.smartscansdk.core.embeddings.normalizeL2
 import com.fpf.smartscansdk.core.media.centerCrop
-import com.fpf.smartscansdk.core.models.ModelManager
-import com.fpf.smartscansdk.core.models.ModelName
-import com.fpf.smartscansdk.core.models.ModelRegistry
+import com.fpf.smartscansdk.core.models.ModelAssetSource
 import com.fpf.smartscansdk.core.processors.BatchProcessor
 import com.fpf.smartscansdk.ml.models.loaders.FileOnnxLoader
 import com.fpf.smartscansdk.ml.models.OnnxModel
@@ -22,10 +19,9 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 
-
 class DinoV2SmallImageEmbedder(
     private val context: Context,
-    @RawRes modelResId: Int? = null
+    modelSource: ModelAssetSource,
 ) : ImageEmbeddingProvider {
 
     companion object  {
@@ -36,13 +32,9 @@ class DinoV2SmallImageEmbedder(
         val MEAN= floatArrayOf(0.485f, 0.456f, 0.406f)
         val STD=floatArrayOf(0.229f, 0.224f, 0.225f)
     }
-    private val model: OnnxModel = if (modelResId != null) {
-        OnnxModel(ResourceOnnxLoader(context.resources, modelResId))
-    } else {
-        if (!ModelManager.modelExists(context, ModelName.DINOV2_SMALL)) throw IllegalStateException("Model not downloaded")
-        val modelInfo = ModelRegistry[ModelName.DINOV2_SMALL]!!
-        val modelFile = ModelManager.getModelFile(context, modelInfo = modelInfo)
-        OnnxModel(FileOnnxLoader(modelFile.absolutePath))
+    private val model: OnnxModel = when(modelSource) {
+        is ModelAssetSource.Resource -> OnnxModel(ResourceOnnxLoader(context.resources, modelSource.resId))
+        is ModelAssetSource.LocalFile -> OnnxModel(FileOnnxLoader(modelSource.file))
     }
 
     override val embeddingDim: Int = 384
