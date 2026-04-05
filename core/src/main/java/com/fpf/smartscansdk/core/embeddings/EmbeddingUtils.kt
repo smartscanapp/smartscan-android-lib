@@ -1,9 +1,6 @@
 package com.fpf.smartscansdk.core.embeddings
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlin.math.sqrt
-
 
 infix fun FloatArray.dot(other: FloatArray) = foldIndexed(0.0) { i, acc, cur -> acc + cur * other[i] }.toFloat()
 
@@ -26,26 +23,25 @@ fun getTopN(similarities: List<Float>, n: Int, threshold: Float = 0f): List<Int>
         .take(n)
 }
 
-suspend fun generatePrototypeEmbedding(embeddings: List<FloatArray>): FloatArray =
-    withContext(Dispatchers.Default) {
+fun generatePrototypeEmbedding(embeddings: List<FloatArray>): FloatArray{
         if (embeddings.isEmpty()) throw IllegalStateException("Missing embeddings")
         val embeddingLength = embeddings[0].size
         val sum = FloatArray(embeddingLength)
         for (emb in embeddings) for (i in emb.indices) sum[i] += emb[i]
-        normalizeL2(FloatArray(embeddingLength) { i -> sum[i] / embeddings.size })
+        return normalizeL2(FloatArray(embeddingLength) { i -> sum[i] / embeddings.size })
     }
 
 // updatedPrototype = ((N * currentPrototype) + sum(newEmbedding)) / (N + newN)
-suspend fun updatePrototype(prototypeEmbedding: FloatArray, newEmbeddings: List<FloatArray>, currentN: Int): Pair<FloatArray, Int> = withContext(Dispatchers.Default){
+fun updatePrototypeEmbedding(embedding: FloatArray, newEmbeddings: List<FloatArray>, currentN: Int): Pair<FloatArray, Int> {
     val updatedN = currentN + newEmbeddings.size
     val sumNew = sumEmbeddings(newEmbeddings)
-    val updatedPrototype = FloatArray(prototypeEmbedding.size)
+    val updatedPrototype = FloatArray(embedding.size)
     if(currentN > 0){
-        for(i in updatedPrototype.indices) updatedPrototype[i] = currentN.toFloat() * prototypeEmbedding[i]
+        for(i in updatedPrototype.indices) updatedPrototype[i] = currentN.toFloat() * embedding[i]
     }
     for (i in updatedPrototype.indices) updatedPrototype[i] += sumNew[i]
     for (i in updatedPrototype.indices) updatedPrototype[i] /= updatedN.toFloat()
-    Pair(normalizeL2(updatedPrototype), updatedN)
+    return Pair(normalizeL2(updatedPrototype), updatedN)
 }
 
 fun flattenEmbeddings(embeddings: List<FloatArray>, embeddingDim: Int): FloatArray {
