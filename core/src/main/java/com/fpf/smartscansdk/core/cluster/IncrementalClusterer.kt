@@ -66,7 +66,7 @@ class IncrementalClusterer(
             addToAnn(itemId, emb)
         }
 
-        removeSingletons()
+//        removeSingletons()
 
         val (avgCohesion, _, avgStd) = computeAverageClusterStats()
         val mergeThreshold = max(defaultThreshold, avgCohesion - avgStd)
