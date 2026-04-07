@@ -163,22 +163,16 @@ class FileEmbeddingStore(
 
     override suspend fun remove(ids: List<Long>): Unit = withContext(Dispatchers.IO) {
         if (ids.isEmpty()) return@withContext
+        var deletedCount = 0
+        for (id in ids) {
+            if (cache.remove(id) != null) deletedCount++
+        }
 
-        try {
-            var removedCount = 0
-            for (id in ids) {
-                if (cache.remove(id) != null) removedCount++
-            }
-
-            if (removedCount > 0) {
-                save(cache.values.toList())
-                Log.i(TAG, "Removed $removedCount stale embeddings")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error Removing embeddings", e)
+        if (deletedCount > 0) {
+            save(cache.values.toList())
+            Log.i(TAG, "Removed $deletedCount stale embeddings")
         }
     }
-
 
     override fun clear(){
         cache.clear()
