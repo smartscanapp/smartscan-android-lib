@@ -28,7 +28,6 @@ class FileEmbeddingStore(
 
     override val exists: Boolean get() = file.exists()
 
-    // prevent OOM in FileEmbeddingStore.save() by batching writes
     private suspend fun save(embeddingsList: List<StoredEmbedding>): Unit = withContext(Dispatchers.IO) {
         if (embeddingsList.isEmpty()) return@withContext
 
@@ -40,7 +39,7 @@ class FileEmbeddingStore(
             header.flip()
             channel.write(header)
 
-            val batchSize = 1000 // number of embeddings per batch
+            val batchSize = 1000
             var index = 0
 
             while (index < embeddingsList.size) {
@@ -69,7 +68,6 @@ class FileEmbeddingStore(
         }
     }
 
-    // This explicitly makes clear the design constraints that requires the full index to be loaded in memory
     override suspend fun get(): List<StoredEmbedding> = withContext(Dispatchers.IO){
         if (cache.isNotEmpty()) return@withContext cache.values.toList()
 
@@ -179,7 +177,7 @@ class FileEmbeddingStore(
     }
 
 
-    override suspend fun query(embedding: FloatArray, topK: Int, threshold: Float, filterIds: List<Long>): List<Long> {
+    override suspend fun query(embedding: FloatArray, topK: Int, threshold: Float, ids: List<Long>): List<Long> {
         cachedIds = null // clear on new search
 
         val storedEmbeddings = get()
@@ -191,7 +189,7 @@ class FileEmbeddingStore(
 
         if (resultIndices.isEmpty()) return emptyList()
 
-        val results = resultIndices.map{idx -> storedEmbeddings[idx].id }.filter { filterIds.isEmpty() || it in filterIds }
+        val results = resultIndices.map{idx -> storedEmbeddings[idx].id }.filter { ids.isEmpty() || it in ids }
         cachedIds = results
         return results
     }
