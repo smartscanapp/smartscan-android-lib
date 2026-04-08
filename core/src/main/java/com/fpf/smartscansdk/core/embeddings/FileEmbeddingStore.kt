@@ -177,7 +177,7 @@ class FileEmbeddingStore(
     }
 
 
-    override suspend fun query(embedding: FloatArray, topK: Int, threshold: Float, ids: List<Long>): List<Long> {
+    override suspend fun query(embedding: FloatArray, topK: Int, threshold: Float, ids: Set<Long>): List<Long> {
         cachedIds = null // clear on new search
 
         val storedEmbeddings = if (ids.isNotEmpty()) get().filter { it.id in ids } else get()

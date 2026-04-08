@@ -11,6 +11,6 @@ interface IEmbeddingStore {
         embedding: FloatArray,
         topK: Int,
         threshold: Float,
-        ids: List<Long> = emptyList()
+        ids: Set<Long> = emptySet()
     ): List<Long>
 }
