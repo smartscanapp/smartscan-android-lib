@@ -24,7 +24,6 @@ fun getTopN(similarities: List<Float>, n: Int, threshold: Float = 0f): List<Int>
 }
 
 fun generatePrototypeEmbedding(embeddings: List<FloatArray>): FloatArray{
-        if (embeddings.isEmpty()) throw IllegalStateException("Missing embeddings")
         val embeddingLength = embeddings[0].size
         val sum = FloatArray(embeddingLength)
         for (emb in embeddings) for (i in emb.indices) sum[i] += emb[i]
