@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.core.net.toUri
+import com.fpf.smartscansdk.core.SmartScanException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -40,7 +41,7 @@ object ModelManager {
 
                 if (!isValid) {
                     extractedFiles.forEach { it.delete() }
-                    return@withContext Result.failure(Exception("Invalid model file"))
+                    return@withContext Result.failure(SmartScanException.InvalidModelFile())
                 }
 
                 Result.success(targetFileOrDir)
@@ -82,7 +83,7 @@ object ModelManager {
             try{
                 if(!isValid){
                     extractedFiles.forEach { it.delete() }
-                    error("Invalid model file")
+                    throw SmartScanException.InvalidModelFile()
                 }
             }finally {
                 tempFile.delete()
@@ -174,7 +175,7 @@ object ModelManager {
 
             if (connection.responseCode != HttpURLConnection.HTTP_OK) {
                 return@withContext Result.failure(
-                    Exception("HTTP error code: ${connection.responseCode}")
+                    SmartScanException.ModelDownloadFailed("HTTP error code: ${connection.responseCode}")
                 )
             }
 
@@ -212,7 +213,7 @@ object ModelManager {
 
             if (!tempFile.renameTo(outputFile)) {
                 tempFile.delete()
-                return@withContext Result.failure(Exception("Failed to rename temp file"))
+                return@withContext Result.failure(SmartScanException.ModelDownloadFailed("Failed to rename temp model file"))
             }
 
             Result.success(outputFile)

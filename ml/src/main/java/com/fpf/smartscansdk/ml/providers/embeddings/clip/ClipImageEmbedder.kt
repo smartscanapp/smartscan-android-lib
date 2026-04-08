@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.core.graphics.get
+import com.fpf.smartscansdk.core.SmartScanException
 import com.fpf.smartscansdk.core.embeddings.ImageEmbeddingProvider
 import com.fpf.smartscansdk.core.embeddings.normalizeL2
 import com.fpf.smartscansdk.core.media.centerCrop
@@ -43,11 +44,11 @@ class ClipImageEmbedder(
     override fun isInitialized() = model.isLoaded()
 
     override suspend fun embed(data: Bitmap): FloatArray = withContext(Dispatchers.Default) {
-        if (!isInitialized()) throw IllegalStateException("Model not initialized")
+        if (!isInitialized()) throw SmartScanException.ModelNotInitialised()
 
         val inputShape = longArrayOf(DIM_BATCH_SIZE.toLong(), DIM_PIXEL_SIZE.toLong(), IMAGE_SIZE_Y.toLong(), IMAGE_SIZE_X.toLong())
         val imgData: FloatBuffer = preProcess(data)
-        val inputName = model.getInputNames()?.firstOrNull() ?: throw IllegalStateException("Model inputs not available")
+        val inputName = model.getInputNames()!!.first()
         val output = model.run(mapOf(inputName to TensorData.FloatBufferTensor(imgData, inputShape)))
         normalizeL2((output.values.first() as Array<FloatArray>)[0])
     }

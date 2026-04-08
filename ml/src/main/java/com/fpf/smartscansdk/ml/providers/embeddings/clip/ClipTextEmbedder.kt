@@ -2,6 +2,7 @@ package com.fpf.smartscansdk.ml.providers.embeddings.clip
 
 import android.app.Application
 import android.content.Context
+import com.fpf.smartscansdk.core.SmartScanException
 import com.fpf.smartscansdk.core.embeddings.TextEmbeddingProvider
 import com.fpf.smartscansdk.core.embeddings.normalizeL2
 import com.fpf.smartscansdk.core.models.ModelAssetSource
@@ -32,7 +33,7 @@ class ClipTextEmbedder(
         vocabSource is ModelAssetSource.LocalFile && mergesSource is ModelAssetSource.LocalFile ->
             ClipTokenizer.load(vocabSource.file, mergesSource.file)
 
-        else -> error("vocabSource and mergesSource must be of the same type")
+        else -> throw SmartScanException.InvalidTextEmbedderResourceFiles()
     }
     private val tokenBOS = 49406
     private val tokenEOS = 49407
@@ -47,7 +48,7 @@ class ClipTextEmbedder(
     override fun isInitialized() = model.isLoaded()
 
     override suspend fun embed(data: String): FloatArray = withContext(Dispatchers.Default) {
-        if (!isInitialized()) throw IllegalStateException("Model not initialized")
+        if (!isInitialized()) throw SmartScanException.ModelNotInitialised()
 
         val clean = Regex("[^A-Za-z0-9 ]").replace(data, "").lowercase()
         val tokens = (mutableListOf(tokenBOS) + tokenizer.encode(clean) + tokenEOS).take(maxTokens).toMutableList()
@@ -58,7 +59,7 @@ class ClipTextEmbedder(
             rewind()
         }
         val inputShape = longArrayOf(1, maxTokens.toLong())
-        val inputName = model.getInputNames()?.firstOrNull() ?: throw IllegalStateException("Model inputs not available")
+        val inputName = model.getInputNames()!!.first()
         val output = model.run(mapOf(inputName to TensorData.LongBufferTensor(inputIds, inputShape)))
         normalizeL2((output.values.first() as Array<FloatArray>)[0])
     }

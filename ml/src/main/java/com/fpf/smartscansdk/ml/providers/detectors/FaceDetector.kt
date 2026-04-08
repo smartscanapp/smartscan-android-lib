@@ -2,8 +2,8 @@ package com.fpf.smartscansdk.ml.providers.detectors
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.util.Log
 import androidx.core.graphics.scale
+import com.fpf.smartscansdk.core.SmartScanException
 import com.fpf.smartscansdk.core.detector.IDetectorProvider
 import com.fpf.smartscansdk.core.media.nms
 import com.fpf.smartscansdk.core.models.ModelAssetSource
@@ -45,7 +45,8 @@ class FaceDetector(
 
     override suspend fun detect(data: Bitmap): Pair<List<Float>, List<FloatArray>> =
         withContext(Dispatchers.Default) {
-            val startTime = System.currentTimeMillis()
+            if (!isInitialized()) throw SmartScanException.ModelNotInitialised()
+
             val inputShape = longArrayOf(
                 DIM_BATCH_SIZE.toLong(),
                 DIM_PIXEL_SIZE.toLong(),
@@ -53,10 +54,8 @@ class FaceDetector(
                 IMAGE_SIZE_X.toLong()
             )
             val imgData: FloatBuffer = preProcess(data)
-            val inputName = model.getInputNames()?.firstOrNull()
-                ?: throw IllegalStateException("Model inputs not available")
-            val outputs =
-                model.run(mapOf(inputName to TensorData.FloatBufferTensor(imgData, inputShape)))
+            val inputName = model.getInputNames()!!.first()
+            val outputs = model.run(mapOf(inputName to TensorData.FloatBufferTensor(imgData, inputShape)))
 
             val outputList = outputs.values.toList()
 
@@ -88,10 +87,6 @@ class FaceDetector(
                     scoresList.add(faceScore)
                 }
             }
-
-            val inferenceTime = System.currentTimeMillis() - startTime
-            Log.d(TAG, "Detection Inference Time: $inferenceTime ms")
-
             // Apply NMS if any detection exists.
             if (boxesList.isNotEmpty()) {
                 val keepIndices = nms(boxesList, scoresList, nmsThreshold)

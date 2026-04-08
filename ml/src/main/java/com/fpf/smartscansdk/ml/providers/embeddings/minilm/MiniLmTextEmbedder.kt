@@ -2,6 +2,7 @@ package com.fpf.smartscansdk.ml.providers.embeddings.minilm
 
 import android.app.Application
 import android.content.Context
+import com.fpf.smartscansdk.core.SmartScanException
 import com.fpf.smartscansdk.core.embeddings.TextEmbeddingProvider
 import com.fpf.smartscansdk.core.embeddings.normalizeL2
 import com.fpf.smartscansdk.core.models.ModelAssetSource
@@ -33,7 +34,7 @@ class MiniLMTextEmbedder(
         vocabSource is ModelAssetSource.LocalFile && configSource is ModelAssetSource.LocalFile ->
             MiniLmTokenizer.load(vocabSource.file, configSource.file)
 
-        else -> error("vocabSource and configSource must be of the same type")
+        else -> throw SmartScanException.InvalidTextEmbedderResourceFiles()
     }
 
     private var closed = false
@@ -46,7 +47,7 @@ class MiniLMTextEmbedder(
     override fun isInitialized() = model.isLoaded()
 
     override suspend fun embed(data: String): FloatArray = withContext(Dispatchers.Default) {
-        if (!isInitialized()) throw IllegalStateException("Model not initialized")
+        if (!isInitialized()) throw SmartScanException.ModelNotInitialised()
 
         val (inputIds, attentionMask) = tokenizer.encode(data)
         val inputShape = longArrayOf(1, maxTokens.toLong())

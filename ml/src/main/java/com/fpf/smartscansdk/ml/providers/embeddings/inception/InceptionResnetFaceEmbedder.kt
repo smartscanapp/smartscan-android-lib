@@ -2,6 +2,7 @@ package com.fpf.smartscansdk.ml.providers.embeddings.inception
 
 import android.content.Context
 import android.graphics.Bitmap
+import com.fpf.smartscansdk.core.SmartScanException
 import com.fpf.smartscansdk.core.embeddings.ImageEmbeddingProvider
 import com.fpf.smartscansdk.core.media.centerCrop
 import com.fpf.smartscansdk.core.models.ModelAssetSource
@@ -41,11 +42,11 @@ class InceptionResnetFaceEmbedder(
     override fun isInitialized() = model.isLoaded()
 
     override suspend fun embed(data: Bitmap): FloatArray = withContext(Dispatchers.Default) {
-        if (!isInitialized()) throw IllegalStateException("Model not initialized")
+        if (!isInitialized()) throw SmartScanException.ModelNotInitialised()
 
         val imgData = preProcess(data)
         val inputShape = longArrayOf(DIM_BATCH_SIZE.toLong(), DIM_PIXEL_SIZE.toLong(), IMAGE_SIZE_Y.toLong(), IMAGE_SIZE_X.toLong())
-        val inputName = model.getInputNames()?.firstOrNull() ?: throw IllegalStateException("Model inputs not available")
+        val inputName = model.getInputNames()!!.first()
         val output = model.run(mapOf(inputName to TensorData.FloatBufferTensor(imgData, inputShape)))
         (output.values.first() as Array<FloatArray>)[0]
     }

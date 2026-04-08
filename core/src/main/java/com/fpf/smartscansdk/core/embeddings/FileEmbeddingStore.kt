@@ -1,12 +1,11 @@
 package com.fpf.smartscansdk.core.embeddings
 
-import android.util.Log
+import com.fpf.smartscansdk.core.SmartScanException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.io.IOException
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -52,7 +51,7 @@ class FileEmbeddingStore(
 
                 for (embedding in batch) {
                     if (embedding.embedding.size != embeddingDimension) {
-                        throw IllegalArgumentException("embedding dimension must be $embeddingDimension")
+                        throw SmartScanException.InvalidEmbeddingDimension("Embedding dimension mismatch. Expected $embeddingDimension, got ${embedding.embedding.size}")
                     }
                     batchBuffer.putLong(embedding.id)
                     batchBuffer.putLong(embedding.date)
@@ -117,7 +116,7 @@ class FileEmbeddingStore(
             channel.position(0)
             val read = channel.read(headerBuf)
             if (read != 4) {
-                throw IOException("Failed to read header count (file too small/corrupted)")
+                throw SmartScanException.CorruptedEmbeddingStoreFile("Failed to read header count")
             }
             headerBuf.flip()
             val existingCount = headerBuf.int
@@ -126,7 +125,7 @@ class FileEmbeddingStore(
             val minEntryBytes = 8 + 8 + embeddingDimension * 4
             val maxCountFromSize = (channel.size() / minEntryBytes).toInt()
             if (existingCount < 0 || existingCount > maxCountFromSize + 10_000) {
-                throw IOException("Corrupt embeddings header: count=$existingCount, fileSize=${channel.size()}")
+                throw SmartScanException.CorruptedEmbeddingStoreFile("Corrupt embeddings header: count=$existingCount, fileSize=${channel.size()}")
             }
 
             val newCount = existingCount + filteredNewEmbeddings.size
@@ -142,7 +141,7 @@ class FileEmbeddingStore(
 
             for (embedding in filteredNewEmbeddings) {
                 if (embedding.embedding.size != embeddingDimension) {
-                    throw IllegalArgumentException("embedding dimension must be $embeddingDimension")
+                    throw SmartScanException.InvalidEmbeddingDimension("Embedding dimension mismatch. Expected $embeddingDimension, got ${embedding.embedding.size}")
                 }
                 val entryBytes = (8 + 8) + embeddingDimension * 4
                 val buf = ByteBuffer.allocate(entryBytes).order(ByteOrder.LITTLE_ENDIAN)
