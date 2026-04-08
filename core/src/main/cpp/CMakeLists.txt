@@ -16,6 +16,11 @@ find_library(
         log
 )
 
+# Add linker flag for 16 KB page alignment
+set_target_properties(hnswlib_jni PROPERTIES
+        LINK_FLAGS "-Wl,-z,max-page-size=16384"
+)
+
 target_link_libraries(
         hnswlib_jni
         ${log-lib}
