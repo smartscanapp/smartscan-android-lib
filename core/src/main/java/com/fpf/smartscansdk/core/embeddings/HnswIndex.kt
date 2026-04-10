@@ -1,8 +1,5 @@
 package com.fpf.smartscansdk.core.embeddings
 
-// Minimal JNI-based wrapper for hnswlib (cosine space)
-// Requires you to build hnswlib with JNI bindings
-
 class HnswIndex(
     private val dim: Int,
     private val maxElements: Int = 1_000_000,
