@@ -23,7 +23,6 @@ class FileEmbeddingStore(
     }
 
     private var cache: LinkedHashMap<Long, StoredEmbedding> = LinkedHashMap()
-    private var cachedIds: List<Long>? = null
 
     override val exists: Boolean get() = file.exists()
 
@@ -177,8 +176,6 @@ class FileEmbeddingStore(
 
 
     override suspend fun query(embedding: FloatArray, topK: Int, threshold: Float, ids: Set<Long>): List<Long> {
-        cachedIds = null // clear on new search
-
         val storedEmbeddings = if (ids.isNotEmpty()) get().filter { it.id in ids } else get()
 
         if (storedEmbeddings.isEmpty()) return emptyList()
@@ -187,20 +184,6 @@ class FileEmbeddingStore(
         val resultIndices = getTopN(similarities, topK, threshold)
 
         if (resultIndices.isEmpty()) return emptyList()
-
-        val results = resultIndices.map{idx -> storedEmbeddings[idx].id }
-        cachedIds = results
-        return results
+        return resultIndices.map{idx -> storedEmbeddings[idx].id }
     }
-
-    suspend fun query(start: Int, end: Int): List<Long> {
-        val ids = cachedIds ?: return emptyList()
-        val s = start.coerceAtLeast(0)
-        val e = end.coerceAtMost(ids.size)
-        if (s >= e) return emptyList()
-
-        val batch = get(ids.subList(s, e))
-        return batch.map { it.id }
-    }
-
 }

@@ -136,35 +136,6 @@ class FileEmbeddingStoreTest {
     }
 
     @Test
-    fun `query batch retrieval with start and end works`() = runTest {
-        val store = createStore()
-
-        val embeddings = listOf(
-            embedding(1, 100, floatArrayOf(0.1f, 0.2f, 0.3f, 0.4f)),
-            embedding(2, 200, floatArrayOf(0.5f, 0.6f, 0.7f, 0.8f)),
-            embedding(3, 300, floatArrayOf(0.9f, 1.0f, 1.1f, 1.2f))
-        )
-        store.add(embeddings)
-
-        // trigger initial query to populate cachedIds
-        store.query(floatArrayOf(0.1f, 0.2f, 0.3f, 0.4f), topK = 3, threshold = 0f)
-
-        // fetch first two cached embeddings (order-agnostic)
-        val batch1 = store.query(0, 2)
-        assertEquals(2, batch1.size)
-        Assertions.assertTrue(batch1.map { it }.all { it in listOf(1L, 2L, 3L) })
-
-        // fetch last cached embedding
-        val batch2 = store.query(2, 3)
-        assertEquals(1, batch2.size)
-        Assertions.assertTrue(batch2[0] in listOf(1L, 2L, 3L))
-
-        // out-of-bounds requests return empty
-        val batch3 = store.query(3, 5)
-        assertEquals(0, batch3.size)
-    }
-
-    @Test
     fun `duplicated ids are not persisted to file`() = runTest {
         val store = createStore()
         val file = File(tempDir, "embeddings.bin")
