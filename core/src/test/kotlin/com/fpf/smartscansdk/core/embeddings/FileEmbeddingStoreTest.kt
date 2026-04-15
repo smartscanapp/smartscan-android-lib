@@ -1,6 +1,7 @@
 package com.fpf.smartscansdk.core.embeddings
 
 import android.util.Log
+import com.fpf.smartscansdk.core.SmartScanException
 import io.mockk.every
 import io.mockk.mockkStatic
 import kotlinx.coroutines.test.runTest
@@ -110,7 +111,7 @@ class FileEmbeddingStoreTest {
         val store = createStore()
         val bad = listOf(embedding(1, 100, floatArrayOf(1f, 2f))) // too short
 
-        assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<SmartScanException.InvalidEmbeddingDimension> {
             store.add(bad)
         }
     }
@@ -130,7 +131,7 @@ class FileEmbeddingStoreTest {
             raf.channel.write(buf)
         }
 
-        assertFailsWith<IOException> {
+        assertFailsWith<SmartScanException.CorruptedEmbeddingStoreFile> {
             store.add(listOf(embedding(2, 200, FloatArray(embeddingLength) { 2f })))
         }
     }
@@ -187,5 +188,35 @@ class FileEmbeddingStoreTest {
         assertEquals(1L, loaded[0].id)
     }
 
+    @Test
+    fun `update modifies existing embeddings and persists changes`() = runTest {
+        val store = createStore()
 
+        val original = listOf(
+            embedding(1L, 100, floatArrayOf(1f, 1f, 1f, 1f)),
+            embedding(2L, 200, floatArrayOf(2f, 2f, 2f, 2f))
+        )
+
+        store.add(original)
+
+        val updated = listOf(
+            embedding(1L, 999, floatArrayOf(9f, 9f, 9f, 9f)),
+            embedding(3L, 300, floatArrayOf(3f, 3f, 3f, 3f)) // does not exist
+        )
+
+        val updatedCount = store.update(updated)
+
+        assertEquals(1, updatedCount)
+
+        val loaded = store.get()
+
+        assertEquals(2, loaded.size)
+
+        val updatedEntry = loaded.first { it.id == 1L }
+        assertEquals(999L, updatedEntry.date)
+        assertTrue(updatedEntry.embedding.contentEquals(floatArrayOf(9f, 9f, 9f, 9f)))
+
+        val unchangedEntry = loaded.first { it.id == 2L }
+        assertEquals(200L, unchangedEntry.date)
+    }
 }
