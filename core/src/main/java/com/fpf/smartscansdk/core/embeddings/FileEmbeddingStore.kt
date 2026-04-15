@@ -98,13 +98,13 @@ class FileEmbeddingStore(
         storedEmbeddings
     }
 
-    override suspend fun add(newStoredEmbeddings: List<StoredEmbedding>): Unit = withContext(Dispatchers.IO) {
-        val filteredNewEmbeddings = newStoredEmbeddings.filterNot { it.id in cache }
-        if (filteredNewEmbeddings.isEmpty()) return@withContext
+    override suspend fun add(embeddings: List<StoredEmbedding>): Int = withContext(Dispatchers.IO) {
+        val filteredNewEmbeddings = embeddings.filterNot { it.id in cache }
+        if (filteredNewEmbeddings.isEmpty()) return@withContext 0
 
         if (!file.exists()) {
             save(filteredNewEmbeddings)
-            return@withContext
+            return@withContext filteredNewEmbeddings.size
         }
 
         RandomAccessFile(file, "rw").use { raf ->
@@ -155,6 +155,7 @@ class FileEmbeddingStore(
             }
             channel.force(false)
         }
+        filteredNewEmbeddings.size
     }
 
     override suspend fun remove(ids: List<Long>): Int = withContext(Dispatchers.IO) {
@@ -185,5 +186,28 @@ class FileEmbeddingStore(
 
         if (resultIndices.isEmpty()) return emptyList()
         return resultIndices.map{idx -> storedEmbeddings[idx].id }
+    }
+
+    override suspend fun update(embeddings: List<StoredEmbedding>): Int = withContext(Dispatchers.IO) {
+        var updatedCount = 0
+        if (embeddings.isEmpty()) return@withContext updatedCount
+
+        for (emb in embeddings) {
+            if (emb.embedding.size != embeddingDimension) {
+                throw SmartScanException.InvalidEmbeddingDimension("Embedding dimension mismatch. Expected $embeddingDimension, got ${emb.embedding.size}")
+            }
+
+            val existing = cache[emb.id]
+            if (existing != null) {
+                cache[emb.id] = emb
+                ++updatedCount
+            }
+        }
+
+        if (updatedCount > 0) {
+            save(cache.values.toList())
+        }
+
+        updatedCount
     }
 }

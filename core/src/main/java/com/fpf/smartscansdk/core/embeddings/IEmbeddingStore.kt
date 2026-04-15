@@ -2,7 +2,8 @@ package com.fpf.smartscansdk.core.embeddings
 
 interface IEmbeddingStore {
     val exists: Boolean
-    suspend fun add(newStoredEmbeddings: List<StoredEmbedding>)
+    suspend fun add(embeddings: List<StoredEmbedding>): Int
+    suspend fun update(embeddings: List<StoredEmbedding>): Int
     suspend fun remove(ids: List<Long>): Int
     suspend fun get(): List<StoredEmbedding>
     fun clear()
