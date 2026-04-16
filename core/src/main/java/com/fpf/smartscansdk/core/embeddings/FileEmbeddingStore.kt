@@ -39,8 +39,6 @@ class FileEmbeddingStore(
     private suspend fun save(embeddingsList: List<StoredEmbedding>): Unit = withContext(Dispatchers.IO) {
         if (embeddingsList.isEmpty()) return@withContext
 
-        cache = LinkedHashMap(embeddingsList.associateBy { it.id })
-
         FileOutputStream(file).channel.use { channel ->
             val header = ByteBuffer.allocate(headerSize).order(ByteOrder.LITTLE_ENDIAN)
             header.putInt(embeddingsList.size)
@@ -49,7 +47,7 @@ class FileEmbeddingStore(
 
             val batchSize = 1000
             var index = 0
-            var offset = 0
+            var offset = headerSize
 
             while (index < embeddingsList.size) {
                 val end = minOf(index + batchSize, embeddingsList.size)
@@ -72,7 +70,6 @@ class FileEmbeddingStore(
                     }
                     idToFileOffsetIndex[embedding.id] = offset.toLong()
                     offset += recordSize
-
                 }
 
                 batchBuffer.flip()
@@ -82,10 +79,11 @@ class FileEmbeddingStore(
         }
     }
 
-    private suspend fun load(): Unit = withContext(Dispatchers.IO) {
-        if (!file.exists()) return@withContext
+    private suspend fun load(): LinkedHashMap<Long, StoredEmbedding> = withContext(Dispatchers.IO) {
         val map = LinkedHashMap<Long, StoredEmbedding>()
         val idx = mutableMapOf<Long, Long>()
+
+        if (!file.exists()) return@withContext map
 
         FileInputStream(file).channel.use { ch ->
             val size = ch.size()
@@ -121,21 +119,20 @@ class FileEmbeddingStore(
         }
 
         idToFileOffsetIndex = idx
-        cache = map
+        map
     }
 
     override suspend fun get(): List<StoredEmbedding> = fileMutex.withLock {
         withContext(Dispatchers.IO) {
             if (cache.isNotEmpty()) return@withContext cache.values.toList()
-
-            load()
+            cache = load()
             cache.values.toList()
         }
     }
 
     suspend fun get(ids: List<Long>): List<StoredEmbedding> = fileMutex.withLock {
         withContext(Dispatchers.IO) {
-            if (cache.isEmpty()) load()
+            if (cache.isEmpty()) cache = load()
             val storedEmbeddings = mutableListOf<StoredEmbedding>()
 
             for (id in ids) {
@@ -149,7 +146,7 @@ class FileEmbeddingStore(
         withContext(Dispatchers.IO) {
             if (idToFileOffsetIndex.isEmpty()) load() // initialise index and cache
 
-            val filteredNewEmbeddings = embeddings.filterNot { it.id in cache }
+            val filteredNewEmbeddings = embeddings.filterNot { it.id in idToFileOffsetIndex }
             if (filteredNewEmbeddings.isEmpty()) return@withContext 0
 
             if (!file.exists()) {
@@ -191,7 +188,12 @@ class FileEmbeddingStore(
 
                     // update in-memory file offset index for the newly appended entry and cache
                     idToFileOffsetIndex[embedding.id] = nextOffset
-                    cache[embedding.id] = embedding
+
+                    // Only add items to cache if it's not empty e.g after get() call, to keep it synchronized
+                    // This prevents unnecessarily keeping embeddings in memory
+                    if(cache.isNotEmpty()){
+                        cache[embedding.id] = embedding
+                    }
                     nextOffset += recordSize
                 }
 
@@ -321,13 +323,16 @@ class FileEmbeddingStore(
                         channel.write(buf)
                     }
 
-                    cache[emb.id] = emb
+                    // Only update in cache if it's not empty e.g after get() call, to keep it synchronized
+                    // This prevents unnecessarily keeping embeddings in memory
+                    if(cache.isNotEmpty()){
+                        cache[emb.id] = emb
+                    }
                     updatedCount++
                 }
 
                 channel.force(false)
             }
-
             updatedCount
         }
     }
@@ -344,7 +349,7 @@ class FileEmbeddingStore(
         val size = channel.size()
         val existingCount = headerBuf.int
         val maxCountFromSize = (size / recordSize)
-        if (existingCount < 0 || existingCount > maxCountFromSize + 10_000) {
+        if (existingCount !in 0..maxCountFromSize) {
             throw SmartScanException.CorruptedEmbeddingStoreFile("Corrupt embeddings header: count=$existingCount, fileSize=${size}")
         }
         return existingCount

@@ -206,6 +206,11 @@ class FileEmbeddingStoreTest {
 
         store.add(original)
 
+        // Sanity check: assertion was correct after add here
+//        val originalResult = store.get()
+//
+//        assertEquals(2, originalResult.size)
+
         val updatedEmbedding = randomEmbedding()
         val updated = listOf(
             embedding(1L, 999, updatedEmbedding),
