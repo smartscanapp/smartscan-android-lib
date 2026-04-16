@@ -3,6 +3,8 @@ package com.fpf.smartscansdk.core.embeddings
 import com.fpf.smartscansdk.core.SmartScanException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -15,12 +17,14 @@ import kotlin.collections.map
 class FileEmbeddingStore(
     private val file: File,
     private val embeddingDimension: Int,
-    ):
+) :
     IEmbeddingStore {
 
     companion object {
         const val TAG = "FileEmbeddingStore"
     }
+
+    private val fileMutex = Mutex()
 
     private var cache: LinkedHashMap<Long, StoredEmbedding> = LinkedHashMap() // initialised in get and only updated in save
     private var idToFileOffsetIndex: MutableMap<Long, Long> = mutableMapOf() // id -> file offset
@@ -29,6 +33,8 @@ class FileEmbeddingStore(
 
     private val recordSize = (8 + 8) + embeddingDimension * 4
     private val headerSize = 4
+
+
 
     private suspend fun save(embeddingsList: List<StoredEmbedding>): Unit = withContext(Dispatchers.IO) {
         if (embeddingsList.isEmpty()) return@withContext
@@ -43,6 +49,7 @@ class FileEmbeddingStore(
 
             val batchSize = 1000
             var index = 0
+            var offset = 0
 
             while (index < embeddingsList.size) {
                 val end = minOf(index + batchSize, embeddingsList.size)
@@ -56,11 +63,16 @@ class FileEmbeddingStore(
                     if (embedding.embedding.size != embeddingDimension) {
                         throw SmartScanException.InvalidEmbeddingDimension("Embedding dimension mismatch. Expected $embeddingDimension, got ${embedding.embedding.size}")
                     }
+
+
                     batchBuffer.putLong(embedding.id)
                     batchBuffer.putLong(embedding.date)
                     for (f in embedding.embedding) {
                         batchBuffer.putFloat(f)
                     }
+                    idToFileOffsetIndex[embedding.id] = offset.toLong()
+                    offset += recordSize
+
                 }
 
                 batchBuffer.flip()
@@ -70,8 +82,8 @@ class FileEmbeddingStore(
         }
     }
 
-    private suspend fun load(): LinkedHashMap<Long, StoredEmbedding> = withContext(Dispatchers.IO) {
-        if (!file.exists()) return@withContext LinkedHashMap()
+    private suspend fun load(): Unit = withContext(Dispatchers.IO) {
+        if (!file.exists()) return@withContext
         val map = LinkedHashMap<Long, StoredEmbedding>()
         val idx = mutableMapOf<Long, Long>()
 
@@ -109,171 +121,161 @@ class FileEmbeddingStore(
         }
 
         idToFileOffsetIndex = idx
-        map
+        cache = map
     }
 
+    override suspend fun get(): List<StoredEmbedding> = fileMutex.withLock {
+        withContext(Dispatchers.IO) {
+            if (cache.isNotEmpty()) return@withContext cache.values.toList()
 
-    override suspend fun get(): List<StoredEmbedding> = withContext(Dispatchers.IO){
-        if (cache.isNotEmpty()) return@withContext cache.values.toList()
-        cache = load()
-        cache.values.toList()
-    }
-
-    suspend fun get(ids: List<Long>): List<StoredEmbedding> = withContext(Dispatchers.IO) {
-        if(cache.isEmpty()) cache = LinkedHashMap(load())
-        val storedEmbeddings = mutableListOf<StoredEmbedding>()
-
-        for (id in ids) {
-            cache[id]?.let { storedEmbeddings.add(it) }
-        }
-        storedEmbeddings
-    }
-
-    override suspend fun add(embeddings: List<StoredEmbedding>): Int = withContext(Dispatchers.IO) {
-        if (idToFileOffsetIndex.isEmpty()) cache = load() // initialise index and cache
-
-        val filteredNewEmbeddings = embeddings.filterNot { it.id in cache }
-        if (filteredNewEmbeddings.isEmpty()) return@withContext 0
-
-        if (!file.exists()) {
-            save(filteredNewEmbeddings)
-            return@withContext filteredNewEmbeddings.size
-        }
-
-        RandomAccessFile(file, "rw").use { raf ->
-            val channel = raf.channel
-
-            // Read the 4-byte header as little-endian
-            val headerBuf = ByteBuffer.allocate(headerSize).order(ByteOrder.LITTLE_ENDIAN)
-            channel.position(0)
-            val read = channel.read(headerBuf)
-            if (read != headerSize) {
-                throw SmartScanException.CorruptedEmbeddingStoreFile("Failed to read header count")
-            }
-            headerBuf.flip()
-            val existingCount = headerBuf.int
-            val newCount = existingCount + filteredNewEmbeddings.size
-
-            // Write the updated count back as little-endian
-            headerBuf.clear()
-            headerBuf.putInt(newCount).flip()
-            channel.position(0)
-            while (headerBuf.hasRemaining()) channel.write(headerBuf)
-
-            // Move to the end to append new entries
-            var nextOffset = channel.size()
-            channel.position(nextOffset)
-
-            for (embedding in filteredNewEmbeddings) {
-                if (embedding.embedding.size != embeddingDimension) {
-                    throw SmartScanException.InvalidEmbeddingDimension(
-                        "Embedding dimension mismatch. Expected $embeddingDimension, got ${embedding.embedding.size}"
-                    )
-                }
-
-                val buf = ByteBuffer.allocate(recordSize).order(ByteOrder.LITTLE_ENDIAN)
-                buf.putLong(embedding.id)
-                buf.putLong(embedding.date)
-                for (f in embedding.embedding) buf.putFloat(f)
-                buf.flip()
-
-                while (buf.hasRemaining()) {
-                    channel.write(buf)
-                }
-
-                // update in-memory file offset index for the newly appended entry and cache
-                idToFileOffsetIndex[embedding.id] = nextOffset
-                cache[embedding.id] = embedding
-                nextOffset += recordSize
-            }
-
-            channel.force(false)
-        }
-
-        filteredNewEmbeddings.size
-    }
-
-    override suspend fun remove(ids: List<Long>): Int = withContext(Dispatchers.IO) {
-        if (ids.isEmpty()) return@withContext 0
-
-        if (idToFileOffsetIndex.isEmpty()) {
             load()
+            cache.values.toList()
         }
+    }
 
-        val idsToRemove = ids.toSet()
-        val existingIdsToRemove = idsToRemove.filterTo(mutableSetOf()) { idToFileOffsetIndex.containsKey(it) }
-        if (existingIdsToRemove.isEmpty()) return@withContext 0
+    suspend fun get(ids: List<Long>): List<StoredEmbedding> = fileMutex.withLock {
+        withContext(Dispatchers.IO) {
+            if (cache.isEmpty()) load()
+            val storedEmbeddings = mutableListOf<StoredEmbedding>()
 
-        val rebuiltIndex = LinkedHashMap<Long, Long>()
-
-        RandomAccessFile(file, "rw").use { raf ->
-            val channel = raf.channel
-
-            val headerBuf = ByteBuffer.allocate(headerSize).order(ByteOrder.LITTLE_ENDIAN)
-            channel.position(0)
-            val read = channel.read(headerBuf)
-            if (read != headerSize) {
-                throw SmartScanException.CorruptedEmbeddingStoreFile("Failed to read header count")
+            for (id in ids) {
+                cache[id]?.let { storedEmbeddings.add(it) }
             }
-            headerBuf.flip()
-            val existingCount = headerBuf.int
+            storedEmbeddings
+        }
+    }
 
-            val recordBuffer = ByteBuffer.allocate(recordSize).order(ByteOrder.LITTLE_ENDIAN)
-            var readPos = headerSize.toLong()
-            var writePos = headerSize.toLong()
-            var keptCount = 0
+    override suspend fun add(embeddings: List<StoredEmbedding>): Int = fileMutex.withLock {
+        withContext(Dispatchers.IO) {
+            if (idToFileOffsetIndex.isEmpty()) load() // initialise index and cache
 
-            repeat(existingCount) {
-                recordBuffer.clear()
-                channel.position(readPos)
+            val filteredNewEmbeddings = embeddings.filterNot { it.id in cache }
+            if (filteredNewEmbeddings.isEmpty()) return@withContext 0
 
-                while (recordBuffer.hasRemaining()) {
-                    val n = channel.read(recordBuffer)
-                    if (n < 0) {
-                        throw SmartScanException.CorruptedEmbeddingStoreFile("Unexpected EOF while removing embeddings")
+            if (!file.exists()) {
+                save(filteredNewEmbeddings)
+                return@withContext filteredNewEmbeddings.size
+            }
+
+            RandomAccessFile(file, "rw").use { raf ->
+                val channel = raf.channel
+                val existingCount = readAndValidateHeader(channel)
+                val newCount = existingCount + filteredNewEmbeddings.size
+
+                // Write the updated count back as little-endian
+                val headerBuf = ByteBuffer.allocate(headerSize).order(ByteOrder.LITTLE_ENDIAN)
+                headerBuf.putInt(newCount).flip()
+                channel.position(0)
+                while (headerBuf.hasRemaining()) channel.write(headerBuf)
+
+                // Move to the end to append new entries
+                var nextOffset = channel.size()
+                channel.position(nextOffset)
+
+                for (embedding in filteredNewEmbeddings) {
+                    if (embedding.embedding.size != embeddingDimension) {
+                        throw SmartScanException.InvalidEmbeddingDimension(
+                            "Embedding dimension mismatch. Expected $embeddingDimension, got ${embedding.embedding.size}"
+                        )
                     }
+
+                    val buf = ByteBuffer.allocate(recordSize).order(ByteOrder.LITTLE_ENDIAN)
+                    buf.putLong(embedding.id)
+                    buf.putLong(embedding.date)
+                    for (f in embedding.embedding) buf.putFloat(f)
+                    buf.flip()
+
+                    while (buf.hasRemaining()) {
+                        channel.write(buf)
+                    }
+
+                    // update in-memory file offset index for the newly appended entry and cache
+                    idToFileOffsetIndex[embedding.id] = nextOffset
+                    cache[embedding.id] = embedding
+                    nextOffset += recordSize
                 }
 
-                recordBuffer.flip()
-                val id = recordBuffer.getLong(0)
+                channel.force(false)
+            }
 
-                if (id !in idsToRemove) {
-                    channel.position(writePos)
+            filteredNewEmbeddings.size
+        }
+    }
+
+    override suspend fun remove(ids: List<Long>): Int = fileMutex.withLock {
+        withContext(Dispatchers.IO) {
+            if (ids.isEmpty()) return@withContext 0
+
+            if (idToFileOffsetIndex.isEmpty()) {
+                load()
+            }
+
+            val idsToRemove = ids.toSet()
+            val existingIdsToRemove = idsToRemove.filterTo(mutableSetOf()) { idToFileOffsetIndex.containsKey(it) }
+            if (existingIdsToRemove.isEmpty()) return@withContext 0
+
+            val rebuiltIndex = LinkedHashMap<Long, Long>()
+
+            RandomAccessFile(file, "rw").use { raf ->
+                val channel = raf.channel
+                val existingCount = readAndValidateHeader(channel)
+                val recordBuffer = ByteBuffer.allocate(recordSize).order(ByteOrder.LITTLE_ENDIAN)
+                var readPos = headerSize.toLong()
+                var writePos = headerSize.toLong()
+                var keptCount = 0
+
+                repeat(existingCount) {
+                    recordBuffer.clear()
+                    channel.position(readPos)
+
                     while (recordBuffer.hasRemaining()) {
-                        channel.write(recordBuffer)
+                        val n = channel.read(recordBuffer)
+                        if (n < 0) {
+                            throw SmartScanException.CorruptedEmbeddingStoreFile("Unexpected EOF while removing embeddings")
+                        }
                     }
-                    rebuiltIndex[id] = writePos
-                    writePos += recordSize.toLong()
-                    keptCount++
+
+                    recordBuffer.flip()
+                    val id = recordBuffer.getLong(0)
+
+                    if (id !in idsToRemove) {
+                        channel.position(writePos)
+                        while (recordBuffer.hasRemaining()) {
+                            channel.write(recordBuffer)
+                        }
+                        rebuiltIndex[id] = writePos
+                        writePos += recordSize.toLong()
+                        keptCount++
+                    }
+
+                    readPos += recordSize.toLong()
                 }
 
-                readPos += recordSize.toLong()
+                val headerBuf = ByteBuffer.allocate(headerSize).order(ByteOrder.LITTLE_ENDIAN)
+                headerBuf.putInt(keptCount).flip()
+                channel.position(0)
+                while (headerBuf.hasRemaining()) {
+                    channel.write(headerBuf)
+                }
+
+                channel.truncate(writePos)
+                channel.force(false)
             }
 
-            headerBuf.clear()
-            headerBuf.putInt(keptCount).flip()
-            channel.position(0)
-            while (headerBuf.hasRemaining()) {
-                channel.write(headerBuf)
+            idToFileOffsetIndex = rebuiltIndex
+
+            for (id in existingIdsToRemove) {
+                cache.remove(id)
             }
 
-            channel.truncate(writePos)
-            channel.force(false)
+            existingIdsToRemove.size
         }
-
-        idToFileOffsetIndex = rebuiltIndex
-
-        for (id in existingIdsToRemove) {
-            cache.remove(id)
-        }
-
-        existingIdsToRemove.size
     }
 
     override fun clear(){
         cache.clear()
+        idToFileOffsetIndex.clear()
     }
-
 
     override suspend fun query(embedding: FloatArray, topK: Int, threshold: Float, ids: Set<Long>): List<Long> {
         val storedEmbeddings = if (ids.isNotEmpty()) get().filter { it.id in ids } else get()
@@ -287,44 +289,65 @@ class FileEmbeddingStore(
         return resultIndices.map{idx -> storedEmbeddings[idx].id }
     }
 
-    override suspend fun update(embeddings: List<StoredEmbedding>): Int = withContext(Dispatchers.IO) {
-        var updatedCount = 0
-        if (embeddings.isEmpty()) return@withContext updatedCount
+    override suspend fun update(embeddings: List<StoredEmbedding>): Int = fileMutex.withLock {
+        withContext(Dispatchers.IO) {
+            var updatedCount = 0
+            if (embeddings.isEmpty()) return@withContext updatedCount
 
-        if (idToFileOffsetIndex.isEmpty()) {
-            load()
-        }
-
-        RandomAccessFile(file, "rw").use { raf ->
-            val channel = raf.channel
-
-            for (emb in embeddings) {
-                if (emb.embedding.size != embeddingDimension) {
-                    throw SmartScanException.InvalidEmbeddingDimension(
-                        "Embedding dimension mismatch. Expected $embeddingDimension, got ${emb.embedding.size}"
-                    )
-                }
-
-                val offset = idToFileOffsetIndex[emb.id] ?: continue
-
-                val buf = ByteBuffer.allocate(recordSize).order(ByteOrder.LITTLE_ENDIAN)
-                buf.putLong(emb.id)
-                buf.putLong(emb.date)
-                for (f in emb.embedding) buf.putFloat(f)
-                buf.flip()
-
-                channel.position(offset)
-                while (buf.hasRemaining()) {
-                    channel.write(buf)
-                }
-
-                cache[emb.id] = emb
-                updatedCount++
+            if (idToFileOffsetIndex.isEmpty()) {
+                load()
             }
 
-            channel.force(false)
-        }
+            RandomAccessFile(file, "rw").use { raf ->
+                val channel = raf.channel
 
-        updatedCount
+                for (emb in embeddings) {
+                    if (emb.embedding.size != embeddingDimension) {
+                        throw SmartScanException.InvalidEmbeddingDimension(
+                            "Embedding dimension mismatch. Expected $embeddingDimension, got ${emb.embedding.size}"
+                        )
+                    }
+
+                    val offset = idToFileOffsetIndex[emb.id] ?: continue
+
+                    val buf = ByteBuffer.allocate(recordSize).order(ByteOrder.LITTLE_ENDIAN)
+                    buf.putLong(emb.id)
+                    buf.putLong(emb.date)
+                    for (f in emb.embedding) buf.putFloat(f)
+                    buf.flip()
+
+                    channel.position(offset)
+                    while (buf.hasRemaining()) {
+                        channel.write(buf)
+                    }
+
+                    cache[emb.id] = emb
+                    updatedCount++
+                }
+
+                channel.force(false)
+            }
+
+            updatedCount
+        }
     }
+
+    private fun readAndValidateHeader(channel: FileChannel): Int{
+        val headerBuf = ByteBuffer.allocate(headerSize).order(ByteOrder.LITTLE_ENDIAN)
+        channel.position(0)
+        val read = channel.read(headerBuf)
+        if (read != headerSize) {
+            throw SmartScanException.CorruptedEmbeddingStoreFile("Failed to read header count")
+        }
+        headerBuf.flip()
+
+        val size = channel.size()
+        val existingCount = headerBuf.int
+        val maxCountFromSize = (size / recordSize)
+        if (existingCount < 0 || existingCount > maxCountFromSize + 10_000) {
+            throw SmartScanException.CorruptedEmbeddingStoreFile("Corrupt embeddings header: count=$existingCount, fileSize=${size}")
+        }
+        return existingCount
+    }
+
 }
