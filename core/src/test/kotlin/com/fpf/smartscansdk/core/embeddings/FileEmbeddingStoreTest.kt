@@ -219,4 +219,39 @@ class FileEmbeddingStoreTest {
         val unchangedEntry = loaded.first { it.id == 2L }
         assertEquals(200L, unchangedEntry.date)
     }
+
+    @Test
+    fun `add-remove sequence preserves full persisted state`() = runTest {
+        val store = createStore()
+
+        val firstBatch = listOf(
+            embedding(1L, 100, floatArrayOf(1f, 1f, 1f, 1f)),
+            embedding(2L, 200, floatArrayOf(2f, 2f, 2f, 2f))
+        )
+
+        val secondBatch = listOf(
+            embedding(3L, 300, floatArrayOf(3f, 3f, 3f, 3f)),
+            embedding(4L, 400, floatArrayOf(4f, 4f, 4f, 4f))
+        )
+
+        store.add(firstBatch)
+
+        // simulate fresh init state without cache
+        store.clear()
+
+        store.add(secondBatch)
+
+        // remove one item after cache was reset
+        store.remove(listOf(3L))
+
+        val result = store.get()
+
+        // Expected: first batch must still exist + second batch minus removed item
+        assertEquals(3, result.size)
+
+        assertTrue(result.any { it.id == 1L })
+        assertTrue(result.any { it.id == 2L })
+        assertTrue(result.any { it.id == 4L })
+        assertTrue(result.none { it.id == 3L })
+    }
 }
