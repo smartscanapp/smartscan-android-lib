@@ -292,7 +292,8 @@ class FileEmbeddingStoreTest {
         }
 
         jobs.joinAll()
-
+        store.save()
+        store.clear()
         val result = store.get()
 
         assertEquals(batch.size - nRemove, result.size)

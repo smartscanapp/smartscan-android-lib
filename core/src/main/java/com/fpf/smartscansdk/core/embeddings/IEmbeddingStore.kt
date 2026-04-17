@@ -7,6 +7,7 @@ interface IEmbeddingStore {
     suspend fun remove(ids: List<Long>): Int
     suspend fun get(): List<StoredEmbedding>
     fun clear()
+    suspend fun save()
 
     suspend fun query(
         embedding: FloatArray,
