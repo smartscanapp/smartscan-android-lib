@@ -1,6 +1,5 @@
 package com.fpf.smartscansdk.ml.providers.embeddings.clip
 
-import android.app.Application
 import android.content.Context
 import com.fpf.smartscansdk.core.SmartScanException
 import com.fpf.smartscansdk.core.embeddings.TextEmbeddingProvider
@@ -9,13 +8,12 @@ import com.fpf.smartscansdk.core.models.ModelAssetSource
 import com.fpf.smartscansdk.ml.models.OnnxModel
 import com.fpf.smartscansdk.ml.models.loaders.FileOnnxLoader
 import com.fpf.smartscansdk.ml.models.loaders.ResourceOnnxLoader
-import com.fpf.smartscansdk.core.processors.BatchProcessor
 import com.fpf.smartscansdk.ml.models.TensorData
 import kotlinx.coroutines.*
 import java.nio.LongBuffer
 
 class ClipTextEmbedder(
-    private val context: Context,
+    context: Context,
     modelSource: ModelAssetSource,
     vocabSource: ModelAssetSource,
     mergesSource: ModelAssetSource,
@@ -62,23 +60,6 @@ class ClipTextEmbedder(
         val inputName = model.getInputNames()!!.first()
         val output = model.run(mapOf(inputName to TensorData.LongBufferTensor(inputIds, inputShape)))
         normalizeL2((output.values.first() as Array<FloatArray>)[0])
-    }
-
-
-    override suspend fun embedBatch(data: List<String>): List<FloatArray> {
-        val allEmbeddings = mutableListOf<FloatArray>()
-
-        val processor = object : BatchProcessor<String, FloatArray>(context = context.applicationContext as Application) {
-            override suspend fun onProcess(context: Context, item: String): FloatArray {
-                return embed(item)
-            }
-            override suspend fun onBatchComplete(context: Context, batch: List<FloatArray>) {
-                allEmbeddings.addAll(batch)
-            }
-        }
-
-        processor.run(data)
-        return allEmbeddings
     }
 
     override fun closeSession() {

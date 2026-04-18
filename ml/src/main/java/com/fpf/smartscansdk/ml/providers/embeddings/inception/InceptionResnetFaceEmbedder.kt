@@ -6,7 +6,6 @@ import com.fpf.smartscansdk.core.SmartScanException
 import com.fpf.smartscansdk.core.embeddings.ImageEmbeddingProvider
 import com.fpf.smartscansdk.core.media.centerCrop
 import com.fpf.smartscansdk.core.models.ModelAssetSource
-import com.fpf.smartscansdk.core.processors.BatchProcessor
 import com.fpf.smartscansdk.ml.models.TensorData
 import com.fpf.smartscansdk.ml.models.loaders.FileOnnxLoader
 import com.fpf.smartscansdk.ml.models.OnnxModel
@@ -51,22 +50,6 @@ class InceptionResnetFaceEmbedder(
         (output.values.first() as Array<FloatArray>)[0]
     }
 
-    override suspend fun embedBatch(data: List<Bitmap>): List<FloatArray> {
-        val allEmbeddings = mutableListOf<FloatArray>()
-
-        val processor = object : BatchProcessor<Bitmap, FloatArray>(context = context.applicationContext) {
-            override suspend fun onProcess(context: Context, item: Bitmap): FloatArray {
-                return embed(item)
-            }
-            override suspend fun onBatchComplete(context: Context, batch: List<FloatArray>) {
-                allEmbeddings.addAll(batch)
-            }
-        }
-
-        processor.run(data)
-        return allEmbeddings
-    }
-
     private fun preProcess(bitmap: Bitmap): FloatBuffer {
         val centredBitmap = centerCrop(bitmap, IMAGE_SIZE_X)
         val imgData = FloatBuffer.allocate(DIM_BATCH_SIZE * DIM_PIXEL_SIZE * IMAGE_SIZE_X * IMAGE_SIZE_Y)
@@ -74,8 +57,8 @@ class InceptionResnetFaceEmbedder(
         val stride = IMAGE_SIZE_X * IMAGE_SIZE_Y
         val bmpData = IntArray(stride)
         centredBitmap.getPixels(bmpData, 0, centredBitmap.width, 0, 0, centredBitmap.width, centredBitmap.height)
-        for (i in 0..IMAGE_SIZE_X - 1) {
-            for (j in 0..IMAGE_SIZE_Y - 1) {
+        for (i in 0..<IMAGE_SIZE_X) {
+            for (j in 0..<IMAGE_SIZE_Y) {
                 val idx = IMAGE_SIZE_Y * i + j
                 val pixelValue = bmpData[idx]
                 imgData.put(idx, (((pixelValue shr 16 and 0xFF) / 255f - MEAN[0]) / STD[0]))

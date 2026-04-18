@@ -1,5 +1,8 @@
 package com.fpf.smartscansdk.core.embeddings
 
+import android.app.Application
+import android.content.Context
+import com.fpf.smartscansdk.core.processors.BatchProcessor
 import kotlin.math.sqrt
 
 infix fun FloatArray.dot(other: FloatArray) = foldIndexed(0.0) { i, acc, cur -> acc + cur * other[i] }.toFloat()
@@ -71,6 +74,22 @@ fun sumEmbeddings(embeddings: List<FloatArray>): FloatArray {
         }
     }
     return sum
+}
+
+suspend fun <T>embedBatch(context: Context, embedder: IEmbeddingProvider<T>, data: List<T>): List<FloatArray> {
+    val allEmbeddings = mutableListOf<FloatArray>()
+
+    val processor = object : BatchProcessor<T, FloatArray>(context = context.applicationContext as Application) {
+        override suspend fun onProcess(context: Context, item: T): FloatArray {
+            return embedder.embed(item)
+        }
+        override suspend fun onBatchComplete(context: Context, batch: List<FloatArray>) {
+            allEmbeddings.addAll(batch)
+        }
+    }
+
+    processor.run(data)
+    return allEmbeddings
 }
 
 

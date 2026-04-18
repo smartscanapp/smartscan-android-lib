@@ -4,6 +4,7 @@ import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.fpf.smartscansdk.core.embeddings.embedBatch
 import com.fpf.smartscansdk.core.models.ModelAssetSource
 import com.fpf.smartscansdk.ml.models.TensorData
 import com.fpf.smartscansdk.ml.models.OnnxModel
@@ -98,7 +99,7 @@ class MiniLmTextEmbedderTest {
         field.set(embedder, mockModel)
 
         val texts = listOf("Hello", "World")
-        val results = embedder.embedBatch( texts)
+        val results = embedBatch(  context.applicationContext, embedder,texts)
 
         assertEquals(2, results.size)
         assertEquals(embedder.embeddingDim, results[0].size)

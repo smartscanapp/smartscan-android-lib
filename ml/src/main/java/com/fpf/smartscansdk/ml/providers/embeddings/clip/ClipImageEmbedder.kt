@@ -1,6 +1,5 @@
 package com.fpf.smartscansdk.ml.providers.embeddings.clip
 
-import android.app.Application
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.core.graphics.get
@@ -9,7 +8,6 @@ import com.fpf.smartscansdk.core.embeddings.ImageEmbeddingProvider
 import com.fpf.smartscansdk.core.embeddings.normalizeL2
 import com.fpf.smartscansdk.core.media.centerCrop
 import com.fpf.smartscansdk.core.models.ModelAssetSource
-import com.fpf.smartscansdk.core.processors.BatchProcessor
 import com.fpf.smartscansdk.ml.models.OnnxModel
 import com.fpf.smartscansdk.ml.models.TensorData
 import com.fpf.smartscansdk.ml.models.loaders.FileOnnxLoader
@@ -20,7 +18,7 @@ import java.nio.ByteOrder
 import java.nio.FloatBuffer
 
 class ClipImageEmbedder(
-    private val context: Context,
+    context: Context,
     modelSource: ModelAssetSource,
 ) : ImageEmbeddingProvider {
     companion object {
@@ -51,22 +49,6 @@ class ClipImageEmbedder(
         val inputName = model.getInputNames()!!.first()
         val output = model.run(mapOf(inputName to TensorData.FloatBufferTensor(imgData, inputShape)))
         normalizeL2((output.values.first() as Array<FloatArray>)[0])
-    }
-
-    override suspend fun embedBatch(data: List<Bitmap>): List<FloatArray> {
-        val allEmbeddings = mutableListOf<FloatArray>()
-
-        val processor = object : BatchProcessor<Bitmap, FloatArray>(context = context.applicationContext as Application) {
-            override suspend fun onProcess(context: Context, item: Bitmap): FloatArray {
-                return embed(item)
-            }
-            override suspend fun onBatchComplete(context: Context, batch: List<FloatArray>) {
-                allEmbeddings.addAll(batch)
-            }
-        }
-
-        processor.run(data)
-        return allEmbeddings
     }
 
     override fun closeSession() {

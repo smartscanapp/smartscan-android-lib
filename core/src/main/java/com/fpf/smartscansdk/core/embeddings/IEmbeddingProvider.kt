@@ -9,7 +9,6 @@ interface IEmbeddingProvider<T> {
     fun isInitialized(): Boolean
     fun closeSession() = Unit
     suspend fun embed(data: T): FloatArray
-    suspend fun embedBatch(data: List<T>): List<FloatArray>
 }
 
 interface TextEmbeddingProvider : IEmbeddingProvider<String> {

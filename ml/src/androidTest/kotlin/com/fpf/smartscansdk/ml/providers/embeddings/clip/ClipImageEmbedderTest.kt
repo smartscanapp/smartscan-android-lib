@@ -5,6 +5,7 @@ import ai.onnxruntime.OrtEnvironment
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.test.core.app.ApplicationProvider
+import com.fpf.smartscansdk.core.embeddings.embedBatch
 import com.fpf.smartscansdk.core.models.ModelAssetSource
 import com.fpf.smartscansdk.ml.models.OnnxModel
 import com.fpf.smartscansdk.ml.models.TensorData
@@ -120,8 +121,7 @@ class ClipImageEmbedderInstrumentedTest {
 
         val bmp1 = Bitmap.createBitmap(IMAGE_SIZE_X, IMAGE_SIZE_Y, Bitmap.Config.ARGB_8888)
         val bmp2 = Bitmap.createBitmap(IMAGE_SIZE_X, IMAGE_SIZE_Y, Bitmap.Config.ARGB_8888)
-
-        val results = embedder.embedBatch( listOf(bmp1, bmp2))
+        val results = embedBatch(  context.applicationContext, embedder,listOf(bmp1, bmp2))
 
         assertEquals(2, results.size)
         assertEquals(embedder.embeddingDim, results[0].size)

@@ -6,6 +6,7 @@ import android.provider.MediaStore
 import com.fpf.smartscansdk.core.embeddings.StoredEmbedding
 import com.fpf.smartscansdk.core.embeddings.IEmbeddingStore
 import com.fpf.smartscansdk.core.embeddings.ImageEmbeddingProvider
+import com.fpf.smartscansdk.core.embeddings.embedBatch
 import com.fpf.smartscansdk.core.embeddings.generatePrototypeEmbedding
 import com.fpf.smartscansdk.core.processors.BatchProcessor
 import com.fpf.smartscansdk.core.media.extractFramesFromVideo
@@ -30,10 +31,6 @@ class VideoIndexer(
     private val store: IEmbeddingStore,
     ): BatchProcessor<Long, StoredEmbedding>(context, listener, memoryOptions, batchSize){
 
-    companion object {
-        const val INDEX_FILENAME = "video_index.bin"
-    }
-
     override suspend fun onBatchComplete(context: Context, batch: List<StoredEmbedding>) {
         store.add(batch)
         listener?.onBatchComplete(context, batch)
@@ -43,11 +40,8 @@ class VideoIndexer(
         val contentUri = ContentUris.withAppendedId(
             MediaStore.Video.Media.EXTERNAL_CONTENT_URI, item
         )
-        val frameBitmaps = extractFramesFromVideo(context, contentUri, width = width, height = height, frameCount = frameCount)
-
-        if(frameBitmaps == null) throw IllegalStateException("Invalid frames")
-
-        val rawEmbeddings = embedder.embedBatch(frameBitmaps)
+        val frameBitmaps = extractFramesFromVideo(context, contentUri, width = width, height = height, frameCount = frameCount)?: throw IllegalStateException("Invalid frames")
+        val rawEmbeddings = embedBatch(context, embedder, frameBitmaps)
         val embedding: FloatArray = generatePrototypeEmbedding(rawEmbeddings)
 
         return StoredEmbedding(

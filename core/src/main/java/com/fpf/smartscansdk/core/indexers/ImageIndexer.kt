@@ -28,9 +28,6 @@ class ImageIndexer(
     batchSize: Int = 10,
     ): BatchProcessor<Long, StoredEmbedding>(context, listener, memoryOptions, batchSize){
 
-    companion object {
-        const val INDEX_FILENAME = "image_index.bin"
-    }
 
     override suspend fun onBatchComplete(context: Context, batch: List<StoredEmbedding>) {
         store.add(batch)
