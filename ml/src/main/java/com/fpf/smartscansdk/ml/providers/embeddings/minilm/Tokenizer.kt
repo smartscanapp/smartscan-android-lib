@@ -5,16 +5,13 @@ import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
-import kotlin.collections.toLongArray
 
 internal class MiniLmTokenizer(
     private val vocab: Map<String, Int>,
-    private val maxLen: Int,
     private val doLowerCase: Boolean,
     private val unkToken: String,
     private val clsToken: String,
     private val sepToken: String,
-    private val padToken: String
 ) {
 
     companion object {
@@ -29,12 +26,10 @@ internal class MiniLmTokenizer(
 
             return MiniLmTokenizer(
                 vocab = vocabMap,
-                maxLen = configJson.getInt("max_length"),
                 doLowerCase = configJson.optBoolean("do_lower_case", true),
                 unkToken = configJson.optString("unk_token", "[UNK]"),
                 clsToken = configJson.optString("cls_token", "[CLS]"),
                 sepToken = configJson.optString("sep_token", "[SEP]"),
-                padToken = configJson.optString("pad_token", "[PAD]")
             )
         }
 
@@ -87,20 +82,15 @@ internal class MiniLmTokenizer(
         return pre.split(" ").flatMap { wordPiece(it) }
     }
 
-    fun encode(text: String): Pair<LongArray, LongArray> {
+    fun encode(text: String): Pair<IntArray, IntArray> {
         val tokens = listOf(clsToken) + tokenize(text) + listOf(sepToken)
-        val ids = tokens.map { vocab[it] ?: vocab[unkToken]!! }.toMutableList()
-        val attention = MutableList(ids.size) { 1L }
+        val ids = IntArray(tokens.size)
+        val mask = IntArray(tokens.size)
 
-        if (ids.size > maxLen) {
-            ids.subList(maxLen, ids.size).clear()
-            attention.subList(maxLen, attention.size).clear()
-        } else if (ids.size < maxLen) {
-            val padLength = maxLen - ids.size
-            ids.addAll(List(padLength) { vocab[padToken]!! })
-            attention.addAll(List(padLength) { 0L })
+        for (i in tokens.indices) {
+            ids[i] = vocab[tokens[i]] ?: vocab[unkToken]!!
+            mask[i] = 1
         }
-
-        return ids.map { it.toLong() }.toLongArray() to attention.map { it }.toLongArray()
+        return ids to mask
     }
 }

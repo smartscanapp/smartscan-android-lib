@@ -28,7 +28,7 @@ class MiniLmTextEmbedderTest {
         mockkObject(MiniLmTokenizer.Companion)
 
         val mockTokenizer = mockk<MiniLmTokenizer>(relaxed = true)
-        every { mockTokenizer.encode(any()) } returns Pair(longArrayOf(1,2,3), longArrayOf(1,1,1))
+        every { mockTokenizer.encode(any()) } returns Pair(intArrayOf(1,2,3), intArrayOf(1,1,1))
         every { MiniLmTokenizer.load(any(), any(), any()) } returns mockTokenizer
     }
 

@@ -13,6 +13,7 @@ import com.fpf.smartscansdk.ml.models.TensorData
 import kotlinx.coroutines.*
 import java.nio.LongBuffer
 import com.fpf.smartscansdk.core.processors.BatchProcessor
+import kotlin.collections.toLongArray
 
 class MiniLMTextEmbedder(
     private val context: Context,
@@ -46,13 +47,35 @@ class MiniLMTextEmbedder(
 
     override fun isInitialized() = model.isLoaded()
 
+
     override suspend fun embed(data: String): FloatArray = withContext(Dispatchers.Default) {
         if (!isInitialized()) throw SmartScanException.ModelNotInitialised()
 
-        val (inputIds, attentionMask) = tokenizer.encode(data)
-        val inputShape = longArrayOf(1, maxTokens.toLong())
-        val inputIdsTensor = TensorData.LongBufferTensor(LongBuffer.wrap(inputIds), inputShape)
-        val attentionMaskTensor = TensorData.LongBufferTensor(LongBuffer.wrap(attentionMask), inputShape)
+        var (ids, mask) = tokenizer.encode(data)
+
+        if (ids.size > maxTokens) {
+            ids = ids.copyOf(maxTokens)
+            mask = mask.copyOf(maxTokens)
+        } else if (ids.size < maxTokens) {
+            val paddedIds = IntArray(maxTokens) // padtoken is 0
+            val paddedMask = IntArray(maxTokens)
+
+            System.arraycopy(ids, 0, paddedIds, 0, ids.size)
+            System.arraycopy(mask, 0, paddedMask, 0, mask.size)
+
+            ids = paddedIds
+            mask = paddedMask
+        }
+
+        val shape = longArrayOf(1, maxTokens.toLong())
+        val inputIdsTensor = TensorData.LongBufferTensor(
+            LongBuffer.wrap(ids.map { it.toLong() }.toLongArray()),
+            shape
+        )
+        val attentionMaskTensor = TensorData.LongBufferTensor(
+            LongBuffer.wrap(mask.map { it.toLong() }.toLongArray()),
+            shape
+        )
 
         val output = model.run(
             mapOf(
