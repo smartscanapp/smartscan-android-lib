@@ -1,9 +1,9 @@
 package com.fpf.smartscansdk.core.models
 
-enum class ModelType(val tag: String) {
-    OBJECT_DETECTOR("object_detector"),
-    IMAGE_ENCODER("image_encoder"),
-    TEXT_ENCODER("text_encoder")
+enum class ModelType {
+    OBJECT_DETECTOR,
+    IMAGE_ENCODER,
+    TEXT_ENCODER
 }
 
 enum class ModelName {
