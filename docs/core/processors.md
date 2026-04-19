@@ -1,107 +1,224 @@
-# **Processors**
+# Processors Documentation
 
-## Overview
+## MemoryOptions
 
-Provides a framework for asynchronous, batched processing of arbitrary data in the SDK.
-Supports:
+Configuration for runtime memory-based concurrency scaling.
 
-* Configurable batch sizes and memory constraints
-* Progress reporting and lifecycle callbacks
-* Metrics for success and failure
-* Concurrency-aware execution for long-running operations
+Fields:
 
-This module is ideal for tasks like embedding generation, model inference, or any other repeated computation on large datasets.
-
-> **Core Data Types**
-> This module uses data types from the `data` package such as `Metrics`, `MemoryOptions`, and `ProcessOptions`. See the [Data Package Documentation](/docs/core/data.md) for details.
+* `lowMemoryThreshold: Long` — below this value, minimum concurrency is used
+* `highMemoryThreshold: Long` — above this value, maximum concurrency is used
+* `minConcurrency: Int` — lower bound for parallel execution
+* `maxConcurrency: Int` — upper bound for parallel execution
 
 ---
 
-### `IProcessorListener<Input, Output>`
+## Memory
 
-Interface for receiving processor lifecycle callbacks.
+Utility for adaptive concurrency control based on available system memory.
 
-| Method                            | Description                                      |
-|-----------------------------------|--------------------------------------------------|
-| `onActive(context)`               | Called when processing starts                    |
-| `onBatchComplete(context, batch)` | Called after each batch is processed             |
-| `onComplete(context, metrics)`    | Called when all items are processed successfully |
-| `onProgress(context, progress)`   | Called to report progress (0–1)                  |
-| `onError(context, error, item)`   | Called for individual item errors                |
-| `onFail(context, failureMetrics)` | Called when processing fails                     |
-
-**Notes:**
-
-* All methods are suspendable except `onError`.
-* Subclasses may override only the callbacks they need.
-
----
-
-## BatchProcessor
-
-Abstract base class for batched, asynchronous processing of items.
-
-### Properties
-
-| Property   | Type                                 | Description                             |
-|------------|--------------------------------------|-----------------------------------------|
-| `context`  | `Context`                            | Provides context for processing tasks   |
-| `listener` | `IProcessorListener<Input, Output>?` | Optional callback listener              |
-| `options`  | `ProcessOptions`                     | Configures batch size and memory limits |
-
----
-
-### Methods
-
-| Method                            | Description                                                                                                                                                    |
-|-----------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `run(items: List<Input>)`         | Executes processing over the list of items in batches. Returns `Metrics` indicating success or failure. Handles concurrency, batching, and listener callbacks. |
-| `onProcess(context, item)`        | Abstract. Implement logic to process a single item and produce an output.                                                                                      |
-| `onBatchComplete(context, batch)` | Abstract. Implement batch-level behavior, e.g., aggregation or storage of batch results. Can delegate to listener.                                             |
-
----
-
-### Behavior
-
-1. Splits items into batches of `options.batchSize`.
-2. Calculates optimal concurrency per batch based on `MemoryOptions`.
-3. Runs each item asynchronously within a concurrency-controlled semaphore.
-4. Tracks progress and updates listener.
-5. Returns `Metrics.Success` if all items succeed.
-6. Returns `Metrics.Failure` if an exception occurs.
-
----
-
-### **Usage Example**
+Constructor:
 
 ```kotlin
-class MyProcessor(context: Context) : BatchProcessor<String, Int>(context) {
-    override suspend fun onProcess(context: Context, item: String): Int {
-        // Convert string to its length
-        return item.length
-    }
-
-    override suspend fun onBatchComplete(context: Context, batch: List<Int>) {
-        println("Processed batch: $batch")
-    }
-}
-
-val processor = MyProcessor(context)
-val items = listOf("apple", "banana", "cherry")
-val metrics = processor.run(items)
-println("Processed ${metrics.totalProcessed} items in ${metrics.timeElapsed}ms")
+Memory(context: Context, memoryOptions: MemoryOptions? = null)
 ```
 
 ---
 
-### Extending
+### getFreeMemory(): Long
 
-To implement a custom processor:
-
-1. Extend `BatchProcessor<Input, Output>`.
-2. Implement `onProcess` to handle individual items.
-3. Implement `onBatchComplete` to handle batch-level results.
-4. Optionally provide an `IProcessorListener` to observe lifecycle events.
-5. Configure `ProcessOptions` and `MemoryOptions` for batching and memory limits.
+Returns available system memory using `ActivityManager.MemoryInfo`.
 
 ---
+
+### calculateConcurrencyLevel(): Int
+
+Computes concurrency level based on free memory.
+
+Behavior:
+
+* If memory < `lowMemoryThreshold` → returns `minConcurrency`
+* If memory ≥ `highMemoryThreshold` → returns `maxConcurrency`
+* Otherwise scales linearly between min and max
+
+---
+
+## Metrics
+
+Sealed result type representing batch processing outcome.
+
+### Success
+
+```kotlin
+Success(totalProcessed: Int, timeElapsed: Long)
+```
+
+Fields:
+
+* `totalProcessed` — number of successfully processed items
+* `timeElapsed` — total execution time in milliseconds
+
+---
+
+### Failure
+
+```kotlin
+Failure(processedBeforeFailure: Int, timeElapsed: Long, error: Exception)
+```
+
+Fields:
+
+* `processedBeforeFailure` — items processed before failure
+* `timeElapsed` — elapsed time before failure
+* `error` — thrown exception
+
+---
+
+## ProcessorListener<Input, Output>
+
+Event callbacks for batch processing lifecycle.
+
+Methods:
+
+* `onActive(context)` — called before processing starts
+* `onBatchComplete(context, batch)` — called after each batch
+* `onComplete(context, metrics)` — called on successful completion
+* `onProgress(context, progress)` — progress updates (0.0–1.0)
+* `onError(context, error, item)` — per-item failure handler
+* `onFail(context, failureMetrics)` — fatal failure callback
+
+Notes:
+
+* Most callbacks are `suspend` except `onError`
+* Designed for external observability without affecting core logic
+
+---
+
+## BatchProcessor<Input, Output>
+
+Abstract base class for concurrent batch processing.
+
+Constructor:
+
+```kotlin
+BatchProcessor(
+    context: Context,
+    listener: ProcessorListener<Input, Output>? = null,
+    memoryOptions: MemoryOptions = MemoryOptions(),
+    batchSize: Int = 10
+)
+```
+
+---
+
+### run(items: List<Input>): Metrics
+
+Main execution entry point.
+
+Behavior:
+
+* Splits input into batches (`batchSize`)
+* Computes concurrency per batch using `Memory`
+* Executes items concurrently using coroutine `async`
+* Uses `Semaphore` to limit parallel execution
+* Emits lifecycle events via `ProcessorListener`
+* Tracks progress incrementally
+* Returns either `Metrics.Success` or `Metrics.Failure`
+
+Execution flow:
+
+* Initialize timing and counters
+* Trigger `onActive`
+* For each batch:
+
+    * Determine concurrency
+    * Process items concurrently
+    * Collect successful outputs
+    * Call `onBatchComplete`
+    * Update progress
+* On completion:
+
+    * Return success metrics
+* On exception:
+
+    * Return failure metrics
+
+---
+
+### onProcess(context, item): Output
+
+Abstract method.
+
+Defines per-item processing logic.
+
+---
+
+### onBatchComplete(context, batch)
+
+Abstract method.
+
+Called after each batch is processed successfully.
+
+---
+
+## Concurrency Model
+
+* Batch-level splitting via `chunked(batchSize)`
+* Item-level parallelism via coroutines
+* Concurrency limited by:
+
+    * system memory (via `Memory`)
+    * semaphore per batch
+
+---
+
+## Error Handling
+
+* Per-item errors:
+
+    * caught inside coroutine
+    * reported via `onError`
+    * do not stop execution
+
+* Global errors:
+
+    * caught in `run`
+    * returned as `Metrics.Failure`
+    * reported via `onFail`
+
+* Cancellation:
+
+    * rethrown immediately (`CancellationException` preserved)
+
+---
+
+## Usage
+
+### Implementing a processor
+
+```kotlin
+class MyProcessor(
+    context: Context,
+    listener: ProcessorListener<Input, Output>? = null
+) : BatchProcessor<Input, Output>(context, listener) {
+
+    override suspend fun onProcess(context: Context, item: Input): Output {
+        return processItem(item)
+    }
+
+    override suspend fun onBatchComplete(context: Context, batch: List<Output>) {
+        // batch-level handling
+    }
+}
+```
+
+---
+
+
+## Design Notes
+
+* Concurrency is dynamically adjusted based on system memory
+* Batch processing reduces coroutine overhead for large inputs
+* Listener is optional but recommended for observability
+* Failures are isolated per item to maximize throughput
+* Designed for long-running background workloads rather than UI-bound tasks

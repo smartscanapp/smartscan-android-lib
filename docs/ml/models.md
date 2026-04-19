@@ -1,134 +1,216 @@
-# **Models**
+# Models
 
-## Overview
+## ModelLoader<T>
 
-Provides a unified framework for managing machine learning models in the SDK.
-Supports on-device ONNX models with flexible input/output handling, type-safe tensor representations, and resource management.
+Generic abstraction for loading model assets.
 
-Key features:
+Methods:
 
-* Abstract base model interface with lifecycle management (`load`, `run`, `close`)
-* Pluggable model loaders (`FilePath`, `ResourceId`)
-* Typed tensor representations for ONNX runtime compatibility
-* Lightweight ONNX model wrapper with session and environment management
+* `load(): T` — suspending load operation returning model data
 
 ---
 
-## `BaseModel<InputTensor>`
+## FileOnnxLoader
 
-Abstract base class for ML models in the SDK.
+Loads ONNX model from a local file.
 
-| Member        | Type                            | Description                               |
-| ------------- | ------------------------------- | ----------------------------------------- |
-| `loader`      | `IModelLoader<*>`               | Abstract loader that provides model bytes |
-| `loadModel()` | `suspend fun`                   | Loads the model into memory               |
-| `isLoaded()`  | `fun`: `Boolean`                | Checks if the model has been loaded       |
-| `run(inputs)` | `fun(Map<String, InputTensor>)` | Runs inference with input tensors         |
-| `close()`     | `fun` (from `AutoCloseable`)    | Releases model resources and memory       |
-
-**Notes:**
-
-* `InputTensor` is generic to allow different tensor types (e.g., `TensorData`).
-* `BaseModel` enforces resource cleanup via `AutoCloseable`.
-
----
-
-## Model Loaders
-
-### `IModelLoader<T>`
-
-Interface for loading model data.
-
-| Method   | Type      | Description                    |
-| -------- | --------- | ------------------------------ |
-| `load()` | `suspend` | Returns model data of type `T` |
-
-
-### Implementations
-
-| Class                | Description                                   |
-| -------------------- | --------------------------------------------- |
-| `FileOnnxLoader`     | Loads model bytes from a file path            |
-| `ResourceOnnxLoader` | Loads model bytes from a raw Android resource |
-
-**Example:**
+Constructor:
 
 ```kotlin
-val loader = FileOnnxLoader("/models/my_model.onnx")
-val bytes = loader.load()
+FileOnnxLoader(file: File)
+```
+
+Behavior:
+
+* Reads entire file into memory as `ByteArray`
+* Intended for ONNX runtime session creation
+
+---
+
+## ResourceOnnxLoader
+
+Loads ONNX model from Android raw resources.
+
+Constructor:
+
+```kotlin
+ResourceOnnxLoader(resources: Resources, resId: Int)
+```
+
+Behavior:
+
+* Opens raw resource stream
+* Reads full content into `ByteArray`
+
+---
+
+## ModelAssetSource
+
+Represents the origin of a model asset.
+
+Variants:
+
+* `LocalFile(file: File)`
+* `Resource(resId: Int)`
+
+---
+
+## BaseModel<InputTensor>
+
+Abstract base class for inference models.
+
+Fields:
+
+* `loader: ModelLoader<*>`
+
+Methods:
+
+* `loadModel()`
+* `isLoaded(): Boolean`
+* `run(inputs: Map<String, InputTensor>): Map<String, Any>`
+* `close()`
+
+Notes:
+
+* Lifecycle-managed inference wrapper
+* Input/output agnostic via generic tensor type
+
+---
+
+## TensorData
+
+Unified tensor representation for ONNX inputs.
+
+Variants:
+
+### FloatBufferTensor
+
+* `data: FloatBuffer`
+* `shape: LongArray`
+
+### IntBufferTensor
+
+* `data: IntBuffer`
+* `shape: LongArray`
+
+### LongBufferTensor
+
+* `data: LongBuffer`
+* `shape: LongArray`
+
+### DoubleBufferTensor
+
+* `data: DoubleBuffer`
+* `shape: LongArray`
+
+### ShortBufferTensor
+
+* `data: ShortBuffer`
+* `shape: LongArray`
+* `type: OnnxJavaType?`
+
+### ByteBufferTensor
+
+* `data: ByteBuffer`
+* `shape: LongArray`
+* `type: OnnxJavaType`
+
+---
+
+## OnnxModel
+
+ONNX Runtime-based inference implementation of `BaseModel`.
+
+Constructor:
+
+```kotlin
+OnnxModel(loader: ModelLoader<ByteArray>)
 ```
 
 ---
 
-## **ONNX Model Wrapper**
+### loadModel()
 
-### `OnnxModel`
+Behavior:
 
-Concrete `BaseModel<TensorData>` implementation using **ONNX Runtime**.
-
-**Key responsibilities:**
-
-* Load ONNX model bytes into an `OrtSession`
-* Run inference on typed tensors (`TensorData`)
-* Handle automatic creation and disposal of `OnnxTensor` objects
-* Provide access to input names and ONNX environment
-
----
-
-### **Properties**
-
-| Property  | Type                      | Description              |
-| --------- | ------------------------- | ------------------------ |
-| `loader`  | `IModelLoader<ByteArray>` | Source of model bytes    |
-| `env`     | `OrtEnvironment`          | ONNX runtime environment |
-| `session` | `OrtSession?`             | Active model session     |
-
----
-
-### **Methods**
-
-| Method            | Description                                             |
-| ----------------- | ------------------------------------------------------- |
-| `loadModel()`     | Loads model bytes and creates an ONNX session           |
-| `isLoaded()`      | Returns `true` if session is initialized                |
-| `run(inputs)`     | Runs inference, returns a map of output names to values |
-| `getInputNames()` | Returns a list of input names expected by the model     |
-| `getEnv()`        | Returns the `OrtEnvironment` used                       |
-| `close()`         | Closes the session and frees resources                  |
-
-**Private helper:**
-
-* `createOnnxTensor(tensorData: TensorData)` – Converts a `TensorData` object into an ONNX runtime tensor.
-
----
-
-### **Usage Example**
+* Loads model bytes via `ModelLoader`
+* Creates ONNX Runtime session:
 
 ```kotlin
-val loader = FileOnnxLoader("/models/clip_image.onnx")
-val model = OnnxModel(loader)
-
-model.loadModel()
-if(model.isLoaded()) {
-    val inputs = mapOf(
-        "input" to TensorData.FloatBufferTensor(floatBuffer, longArrayOf(1,3,224,224))
-    )
-    val outputs = model.run(inputs)
-    println(outputs)
-}
-
-model.close()
+session = env.createSession(bytes)
 ```
 
----
-
-## **Extending**
-
-To implement a custom model:
-
-1. Extend `BaseModel<InputTensor>` with your tensor type.
-2. Provide a loader implementing `IModelLoader<*>`.
-3. Override `run()` to handle inference logic.
-4. Ensure proper resource cleanup in `close()`.
+* Runs on IO dispatcher
 
 ---
+
+### isLoaded(): Boolean
+
+Returns:
+
+* `true` if session is initialized
+* `false` otherwise
+
+---
+
+### run(inputs: Map<String, TensorData>): Map<String, Any>
+
+Executes ONNX inference.
+
+Behavior:
+
+* Requires initialized session
+* Converts `TensorData` → `OnnxTensor`
+* Runs session inference
+* Returns raw output map
+
+Tensor creation:
+
+```kotlin
+OnnxTensor.createTensor(env, data, shape)
+```
+
+Special handling:
+
+* Supports all primitive buffer types
+* Optional ONNX type override for Short/Byte tensors
+
+Cleanup:
+
+* Closes all created tensors after execution
+
+Error handling:
+
+* Throws `ModelNotInitialised` if session is null
+
+---
+
+### getInputNames(): List<String>?
+
+Returns model input node names if session is available.
+
+---
+
+### getEnv(): OrtEnvironment
+
+Returns ONNX Runtime environment instance.
+
+---
+
+### close()
+
+Behavior:
+
+* Closes ONNX session
+* Clears session reference
+
+---
+
+## Design Notes
+
+* Model loading is decoupled via `ModelLoader`
+* Supports file and resource-based model distribution
+* ONNX session is created after explicit `loadModel`
+* Tensor abstraction isolates ONNX APIs from upper layers
+* Safe resource cleanup enforced during inference
+* Designed for Android ONNX Runtime usage

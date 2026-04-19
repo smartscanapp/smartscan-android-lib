@@ -1,110 +1,111 @@
-# **Indexers**
+# Indexers Documentation
 
-## Overview
+## ImageIndexer
 
-Provides batched, on-device indexing of media content (images and videos) into embeddings for semantic search and classification.
+Processes image media IDs, generates embeddings, and stores them in an embedding store.
 
-Key features:
-
-* Processes media in batches using `BatchProcessor`.
-* Supports optional progress and lifecycle callbacks via `IProcessorListener`.
-* Optimized for on-device performance with memory-mapped file stores.
-
-**Design constraints:**
-
-* Full embedding index must be loaded in memory for efficient vector search.
-* File-based `IEmbeddingStore` is preferred over Room due to up to 100× faster index loading.
-* For the `VideoIndexer` video frame extraction may fail for some codecs; callers should handle exceptions.
-
----
-
-## **ImageIndexer**
-
-Processes images from the device `MediaStore` and generates embeddings.
-
-### **Constructor**
-
-| Parameter  | Type                                   | Description                           |
-|------------|----------------------------------------| ------------------------------------- |
-| `embedder` | `ImageEmbeddingProvider`               | Embedder for generating image embeddings |
-| `context`  | `Context`                              | Context|
-| `listener` | `IProcessorListener<Long, Embedding>?` | Optional processor listener           |
-| `options`  | `ProcessOptions`                       | Configurable batch and memory options |
-| `store`    | `IEmbeddingStore`                      | Storage for generated embeddings      |
-
----
-
-### **Methods**
-
-| Method                            | Description                                                                                                                               |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `onProcess(context, id)`          | Loads the image with the given MediaStore ID, generates a bitmap, embeds it using `ImageEmbeddingProvider`, and returns an `Embedding` object. |
-| `onBatchComplete(context, batch)` | Persists the batch of embeddings to `IEmbeddingStore`.                                                                                    |
-
----
-
-### **Usage Example**
+Constructor:
 
 ```kotlin
-val imageEmbedder = ClipImageEmbedder(context, ResourceId(R.raw.image_encoder_quant_int8))
-val imageStore = FileEmbeddingStore(File(context.filesDir, "image_index.bin"), imageEmbedder.embeddingDim, useCache = false) // cache not needed for indexing
-val imageIndexer = ImageIndexer(imageEmbedder, context=context, listener = null, store = imageStore) //optionally pass a listener to handle events
-val ids = getImageIds() // placeholder function to get MediaStore image ids
-val metrics = imageIndexer.run(ids)
-println("Indexed ${metrics.totalProcessed} images in ${metrics.timeElapsed}ms")
+ImageIndexer(
+    embedder: ImageEmbeddingProvider,
+    store: EmbeddingStore,
+    maxImageSize: Int = 225,
+    context: Context,
+    listener: ProcessorListener<Long, StoredEmbedding>? = null,
+    memoryOptions: MemoryOptions = MemoryOptions(),
+    batchSize: Int = 10
+)
 ```
 
 ---
 
-## **VideoIndexer**
+### onProcess(context, item): StoredEmbedding
 
-Processes videos from the device `MediaStore`, extracts frames, generates embeddings for each frame, and computes a prototype embedding for the video.
+Processes a single image item ID.
 
-### **Constructor**
+Behavior:
 
-| Parameter    | Type                                   | Description                                                  |
-|--------------|----------------------------------------| ------------------------------------------------------------ |
-| `embedder`   | `ImageEmbeddingProvider`               | Embedder for generating embeddings from video frames         |
-| `frameCount` | `Int`                                  | Number of frames to extract per video (default: 10)          |
-| `width`      | `Int`                                  | Width to resize frames   |
-| `height`     | `Int`                                  | Height to resize frames  |
-| `context`    | `Context`                              | Context                     |
-| `listener`   | `IProcessorListener<Long, Embedding>?` | Optional processor listener                                  |
-| `options`    | `ProcessOptions`                       | Configurable batch and memory options                        |
-| `store`      | `IEmbeddingStore`                      | Storage for generated embeddings                             |
+* Resolves `MediaStore.Images.Media` URI from ID
+* Loads bitmap with size constraint (`maxImageSize`)
+* Generates embedding using `ImageEmbeddingProvider`
+* Wraps result into `StoredEmbedding`
+
+Output:
+
+* `StoredEmbedding(id, date, embedding)`
 
 ---
 
-### **Methods**
+### onBatchComplete(context, batch)
 
-| Method                            | Description                                                                                                                                                                                                                |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `onProcess(context, id)`          | Loads the video with the given MediaStore ID, extracts `frameCount` frames, embeds each frame with `ClipImageEmbedder`, generates a prototype embedding, and returns an `Embedding`. Throws if frames cannot be extracted. |
-| `onBatchComplete(context, batch)` | Persists the batch of embeddings to `IEmbeddingStore`.                                                                                                                                                                     |
+Behavior:
+
+* Persists batch embeddings into `EmbeddingStore`
+* Forwards batch event to listener if present
 
 ---
 
-### **Usage Example**
+### Design Notes
+
+* Optimized for batch execution via `BatchProcessor`
+* Embeddings are generated per media item ID from `MediaStore`
+* Storage is decoupled from indexing logic
+
+---
+
+## VideoIndexer
+
+Processes video media IDs, extracts representative frames, and generates prototype embeddings.
+
+Constructor:
 
 ```kotlin
-val imageEmbedder = ClipImageEmbedder(context, ResourceId(R.raw.image_encoder_quant_int8))
-val videoStore = FileEmbeddingStore(File(context.filesDir,  "video_index.bin"), imageEmbedder.embeddingDim, useCache = false )
-val videoIndexer = VideoIndexer(imageEmbedder, context=context, listener = null, store = videoStore, width = ClipConfig.IMAGE_SIZE_X, height = ClipConfig.IMAGE_SIZE_Y)
-val ids = getVideoIds() // placeholder function to get MediaStore video ids
-val metrics = videoIndexer.run(videoIds)
-println("Indexed ${metrics.totalProcessed} videos in ${metrics.timeElapsed}ms")
+VideoIndexer(
+    embedder: ImageEmbeddingProvider,
+    frameCount: Int = 10,
+    width: Int,
+    height: Int,
+    context: Context,
+    listener: ProcessorListener<Long, StoredEmbedding>? = null,
+    batchSize: Int = 10,
+    memoryOptions: MemoryOptions = MemoryOptions(),
+    store: EmbeddingStore
+)
 ```
 
 ---
 
-## **Extending**
+### onProcess(context, item): StoredEmbedding
 
-To implement a custom indexer:
+Processes a single video item ID.
 
-1. Extend `BatchProcessor<MediaId, Embedding>`.
-2. Implement `onProcess()` to generate an embedding for a single media item.
-3. Implement `onBatchComplete()` to persist batch embeddings.
-4. Optionally provide a listener for progress or lifecycle events.
-5. Consider memory constraints and batch size via `ProcessOptions`.
+Behavior:
+
+* Resolves `MediaStore.Video.Media` URI from ID
+* Extracts frames from video
+* Resizes frames to `(width, height)`
+* Embeds frames in batch
+* Aggregates embeddings into a single prototype vector
+
+Output:
+
+* `StoredEmbedding(id, date, prototypeEmbedding)`
 
 ---
+
+### onBatchComplete(context, batch)
+
+Behavior:
+
+* Persists batch embeddings into `EmbeddingStore`
+* Forwards batch event to listener if present
+
+---
+
+### Design Notes
+
+* Frame-based video representation using sampled keyframes
+* Aggregates multiple frame embeddings into a single vector
+* Higher compute cost due to frame extraction and batch embedding
+* Intended for semantic video retrieval and clustering pipelines

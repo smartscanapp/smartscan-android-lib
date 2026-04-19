@@ -1,84 +1,141 @@
-# Media
-
-A collection of image and video processing utilities used across the SDK.
-
----
+# Media Documentation
 
 ## ImageUtils
 
-Provides helper functions for image scaling, cropping, and loading from URIs.
-
-### `centerCrop(bitmap: Bitmap, imageSize: Int): Bitmap`
-
-Crops the input `bitmap` to a square based on the smaller dimension, centers it, and scales it to `imageSize` × `imageSize`.
-
-**Parameters:**
-
-| Name        | Type   | Description                   |
-|-------------|--------|-------------------------------|
-| `bitmap`    | Bitmap | Source bitmap                 |
-| `imageSize` | Int    | Target width and height in px |
-
-**Returns:** Cropped and scaled `Bitmap`.
+Utility functions for image preprocessing, cropping, scaling, face extraction, and visualization.
 
 ---
 
-### `getScaledDimensions(width: Int, height: Int, maxSize: Int = 1024): Pair<Int, Int>`
+### centerCrop(bitmap, imageSize): Bitmap
 
-Calculates scaled dimensions for a bitmap, preserving aspect ratio, such that the largest side does not exceed `maxSize`.
+Crops the input bitmap to a centered square and resizes it.
 
-**Parameters:**
+Behavior:
 
-| Name      | Type | Description                                 |
-|-----------|------|---------------------------------------------|
-| `width`   | Int  | Original width                              |
-| `height`  | Int  | Original height                             |
-| `maxSize` | Int  | Maximum allowed width/height (default 1024) |
+* If width ≥ height: crops horizontally centered region
+* If height > width: crops vertically centered region
+* Resizes result to `(imageSize, imageSize)`
 
-**Returns:** Pair of scaled `(width, height)`.
+Output:
+
+* Square bitmap scaled to target size
 
 ---
 
-### `getBitmapFromUri(context: Context, uri: Uri, maxSize: Int): Bitmap`
+### getScaledDimensions(width, height, maxSize): Pair<Int, Int>
 
-Loads a bitmap from a content `Uri`, automatically scaling it so the largest side does not exceed `maxSize`.
+Computes resized dimensions while preserving aspect ratio.
 
-**Parameters:**
+Behavior:
 
-| Name      | Type    | Description             |
-|-----------|---------|-------------------------|
-| `context` | Context | Android context         |
-| `uri`     | Uri     | Source image URI        |
-| `maxSize` | Int     | Maximum dimension in px |
+* If both dimensions ≤ maxSize: returns original size
+* Otherwise scales largest dimension down to maxSize
 
-**Returns:** Decoded and scaled `Bitmap` with `ARGB_8888` configuration.
+Output:
+
+* `(newWidth, newHeight)`
+
+---
+
+### getBitmapFromUri(context, uri, maxSize): Bitmap
+
+Loads and decodes a bitmap from a content URI with size constraints.
+
+Behavior:
+
+* Uses `ImageDecoder`
+* Applies `getScaledDimensions`
+* Decodes bitmap at target resolution
+* Returns mutable `ARGB_8888` copy
+
+Output:
+
+* Decoded and rescaled bitmap
+
+---
+
+### cropFaces(bitmap, boxes): List<Bitmap>
+
+Extracts face regions from bounding boxes.
+
+Behavior:
+
+* Clamps box coordinates to bitmap bounds
+* Skips invalid boxes
+* Crops sub-bitmaps per bounding box
+
+Output:
+
+* List of cropped face bitmaps
+
+---
+
+### nms(boxes, scores, iouThreshold): List<Int>
+
+Non-Maximum Suppression for filtering overlapping bounding boxes.
+
+Behavior:
+
+* Sorts boxes by confidence score
+* Iteratively removes boxes with IoU above threshold
+* Keeps highest scoring non-overlapping boxes
+
+Output:
+
+* Indices of selected boxes
+
+---
+
+### drawBoxes(bitmap, boxes, color, margin, strokeWidth): Bitmap
+
+Draws bounding boxes onto a bitmap.
+
+Behavior:
+
+* Creates mutable bitmap copy
+* Draws rectangles using `Canvas`
+* Applies optional margin expansion
+* Uses stroke-only rendering
+
+Output:
+
+* Annotated bitmap with drawn boxes
 
 ---
 
 ## VideoUtils
 
-Provides helper functions for extracting frames from video files.
-
-### `extractFramesFromVideo(context: Context, videoUri: Uri, width: Int, height: Int, frameCount: Int = 10): List<Bitmap>?`
-
-Extracts up to `frameCount` evenly spaced frames from a video at the specified resolution.
-
-**Parameters:**
-
-| Name         | Type    | Description                              |
-|--------------|---------|------------------------------------------|
-| `context`    | Context | Android context                          |
-| `videoUri`   | Uri     | Video URI                                |
-| `width`      | Int     | Target frame width                       |
-| `height`     | Int     | Target frame height                      |
-| `frameCount` | Int     | Number of frames to extract (default 10) |
-
-**Returns:** List of `Bitmap` frames, or `null` if extraction fails.
-
-**Behavior:**
-
-* Extracts frames using `MediaMetadataRetriever` with `OPTION_CLOSEST_SYNC`.
-* Stops early if a frame cannot be decoded (common codec issues).
-* Executes in a coroutine on `Dispatchers.IO`.
+Utilities for extracting frames from video files.
 
 ---
+
+### extractFramesFromVideo(context, videoUri, width, height, frameCount): List<Bitmap>?
+
+Extracts evenly spaced frames from a video.
+
+Behavior:
+
+* Uses `MediaMetadataRetriever`
+* Computes video duration
+* Samples frames at uniform timestamps
+* Scales frames to `(width, height)`
+* Stops early if frame decoding fails
+* Returns null on error or empty result
+
+Execution:
+
+* Runs on `Dispatchers.IO`
+
+Output:
+
+* List of extracted video frames or null
+
+---
+
+### Design Notes
+
+* Frame extraction is time-based sampling (not scene detection)
+* Designed for embedding pipelines requiring representative video frames
+* Face utilities assume rectangular bounding boxes in pixel coordinates
+* NMS implementation is linear after sorting (simple greedy suppression)
+* All image outputs use mutable `ARGB_8888` format for downstream processing
