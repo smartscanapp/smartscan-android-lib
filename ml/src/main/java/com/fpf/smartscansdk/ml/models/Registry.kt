@@ -1,4 +1,4 @@
-package com.fpf.smartscansdk.core.models
+package com.fpf.smartscansdk.ml.models
 
 val ModelRegistry  =  mapOf<ModelName, ModelInfo>(
     ModelName.ALL_MINILM_L6_V2 to ModelInfo(

@@ -4,7 +4,7 @@ package com.fpf.smartscansdk.ml.models
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import ai.onnxruntime.*
-import com.fpf.smartscansdk.ml.models.loaders.IModelLoader
+import com.fpf.smartscansdk.ml.models.loaders.ModelLoader
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.every
@@ -25,7 +25,7 @@ import java.nio.FloatBuffer
 
 class OnnxModelInstrumentedTest {
 
-    private lateinit var loader: IModelLoader<ByteArray>
+    private lateinit var loader: ModelLoader<ByteArray>
     private lateinit var model: OnnxModel
     private lateinit var session: OrtSession
 

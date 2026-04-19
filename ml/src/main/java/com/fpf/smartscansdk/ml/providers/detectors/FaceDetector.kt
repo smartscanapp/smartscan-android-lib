@@ -6,7 +6,7 @@ import androidx.core.graphics.scale
 import com.fpf.smartscansdk.core.SmartScanException
 import com.fpf.smartscansdk.core.detector.IDetectorProvider
 import com.fpf.smartscansdk.core.media.nms
-import com.fpf.smartscansdk.core.models.ModelAssetSource
+import com.fpf.smartscansdk.ml.models.ModelAssetSource
 import com.fpf.smartscansdk.ml.models.OnnxModel
 import com.fpf.smartscansdk.ml.models.TensorData
 import com.fpf.smartscansdk.ml.models.loaders.FileOnnxLoader

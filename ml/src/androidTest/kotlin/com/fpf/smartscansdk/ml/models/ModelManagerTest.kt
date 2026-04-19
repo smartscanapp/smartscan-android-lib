@@ -1,4 +1,4 @@
-package com.fpf.smartscansdk.core.models
+package com.fpf.smartscansdk.ml.models
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider

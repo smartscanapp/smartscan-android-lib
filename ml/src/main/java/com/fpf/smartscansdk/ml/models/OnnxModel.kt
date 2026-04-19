@@ -4,12 +4,12 @@ import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import com.fpf.smartscansdk.core.SmartScanException
-import com.fpf.smartscansdk.ml.models.loaders.IModelLoader
+import com.fpf.smartscansdk.ml.models.loaders.ModelLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 
-class OnnxModel(override val loader: IModelLoader<ByteArray>) : BaseModel<TensorData>() {
+class OnnxModel(override val loader: ModelLoader<ByteArray>) : BaseModel<TensorData>() {
     private val env: OrtEnvironment = OrtEnvironment.getEnvironment()
     private var session: OrtSession? = null
 
