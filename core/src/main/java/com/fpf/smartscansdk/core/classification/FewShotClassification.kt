@@ -3,7 +3,6 @@ package com.fpf.smartscansdk.core.classification
 import com.fpf.smartscansdk.core.embeddings.StoredEmbedding
 import com.fpf.smartscansdk.core.embeddings.dot
 
-data class ClassificationResult(val classId: Long?, val similarity: Float )
 
 fun fewShotClassify(embedding: FloatArray, classPrototypes: List<StoredEmbedding>, classPrototypeCohesionScores: Map<Long, Float>): ClassificationResult{
     var bestSim = -1f
