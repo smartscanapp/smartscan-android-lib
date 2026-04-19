@@ -76,7 +76,7 @@ fun sumEmbeddings(embeddings: List<FloatArray>): FloatArray {
     return sum
 }
 
-suspend fun <T>embedBatch(context: Context, embedder: IEmbeddingProvider<T>, data: List<T>): List<FloatArray> {
+suspend fun <T>embedBatch(context: Context, embedder: EmbeddingProvider<T>, data: List<T>): List<FloatArray> {
     val allEmbeddings = mutableListOf<FloatArray>()
 
     val processor = object : BatchProcessor<T, FloatArray>(context = context.applicationContext as Application) {

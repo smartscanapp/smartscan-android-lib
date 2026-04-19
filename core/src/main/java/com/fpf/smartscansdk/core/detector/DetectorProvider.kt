@@ -1,6 +1,6 @@
 package com.fpf.smartscansdk.core.detector
 
-interface IDetectorProvider<T> {
+interface DetectorProvider<T> {
     fun closeSession() = Unit
     suspend fun initialize()
     fun isInitialized(): Boolean

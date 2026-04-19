@@ -17,7 +17,7 @@ import kotlin.test.assertTrue
 class BatchProcessorTest {
 
     private lateinit var context: Context
-    private lateinit var mockListener: IProcessorListener<Int, Int>
+    private lateinit var mockListener: ProcessorListener<Int, Int>
 
     @BeforeEach
     fun setup() {
@@ -37,7 +37,7 @@ class BatchProcessorTest {
     // Simple concrete subclass for testing
     class TestProcessor(
         context: Context,
-        listener: IProcessorListener<Int, Int>,
+        listener: ProcessorListener<Int, Int>,
         private val failOn: Set<Int> = emptySet(),
         memoryOptions: MemoryOptions = MemoryOptions(),
         batchSize: Int = 2

@@ -4,7 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import androidx.core.graphics.scale
 import com.fpf.smartscansdk.core.SmartScanException
-import com.fpf.smartscansdk.core.detector.IDetectorProvider
+import com.fpf.smartscansdk.core.detector.DetectorProvider
 import com.fpf.smartscansdk.core.media.nms
 import com.fpf.smartscansdk.ml.models.ModelAssetSource
 import com.fpf.smartscansdk.ml.models.OnnxModel
@@ -22,7 +22,7 @@ class FaceDetector(
     modelSource: ModelAssetSource,
     private val confThreshold: Float = 0.5f,
     private val nmsThreshold: Float = 0.3f
-) : IDetectorProvider<Bitmap> {
+) : DetectorProvider<Bitmap> {
 
     companion object {
         private const val TAG = "FaceDetector"

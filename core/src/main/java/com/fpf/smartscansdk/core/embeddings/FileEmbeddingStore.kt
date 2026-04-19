@@ -18,7 +18,7 @@ class FileEmbeddingStore(
     private val file: File,
     private val embeddingDimension: Int,
 ) :
-    IEmbeddingStore {
+    EmbeddingStore {
 
     companion object {
         const val TAG = "FileEmbeddingStore"

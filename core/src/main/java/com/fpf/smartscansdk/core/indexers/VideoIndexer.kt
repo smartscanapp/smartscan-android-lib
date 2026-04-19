@@ -4,13 +4,13 @@ import android.content.ContentUris
 import android.content.Context
 import android.provider.MediaStore
 import com.fpf.smartscansdk.core.embeddings.StoredEmbedding
-import com.fpf.smartscansdk.core.embeddings.IEmbeddingStore
+import com.fpf.smartscansdk.core.embeddings.EmbeddingStore
 import com.fpf.smartscansdk.core.embeddings.ImageEmbeddingProvider
 import com.fpf.smartscansdk.core.embeddings.embedBatch
 import com.fpf.smartscansdk.core.embeddings.generatePrototypeEmbedding
 import com.fpf.smartscansdk.core.processors.BatchProcessor
 import com.fpf.smartscansdk.core.media.extractFramesFromVideo
-import com.fpf.smartscansdk.core.processors.IProcessorListener
+import com.fpf.smartscansdk.core.processors.ProcessorListener
 import com.fpf.smartscansdk.core.processors.MemoryOptions
 
 // ** Design Constraint**: For on-device vector search, the full index needs to be loaded in-memory (or make an Android native VectorDB)
@@ -25,10 +25,10 @@ class VideoIndexer(
     private val width: Int,
     private val height: Int,
     context: Context,
-    listener: IProcessorListener<Long, StoredEmbedding>? = null,
+    listener: ProcessorListener<Long, StoredEmbedding>? = null,
     batchSize: Int = 10,
     memoryOptions: MemoryOptions = MemoryOptions(),
-    private val store: IEmbeddingStore,
+    private val store: EmbeddingStore,
     ): BatchProcessor<Long, StoredEmbedding>(context, listener, memoryOptions, batchSize){
 
     override suspend fun onBatchComplete(context: Context, batch: List<StoredEmbedding>) {
