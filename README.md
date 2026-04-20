@@ -11,7 +11,6 @@
   - [2. Install ML Module (Optional)](#2-install-ml-module-optional)
 * [Design Choices](#design-choices)
   - [Core and ML](#core-and-ml)
-  - [Model](#model)
   - [Embedding Storage](#embedding-storage)
     - [Benchmark Summary](#benchmark-summary) 
 
@@ -55,13 +54,13 @@ dependencyResolutionManagement {
 ### **1. Install Core Module**
 
 ```gradle
-implementation("com.github.dev-diaries41.smartscan-sdk:smartscan-core:1.1.0")
+implementation("com.github.dev-diaries41.smartscan-sdk:smartscan-core:${smartscanVersion}")
 ```
 
 ### **2. Install ML Module (Optional)**
 
 ```gradle
-implementation("com.github.dev-diaries41.smartscan-sdk:smartscan-ml:1.1.0")
+implementation("com.github.dev-diaries41.smartscan-sdk:smartscan-ml:${smartscanVersion}")
 ```
 
 > `ml` depends on `core`, so including it is enough if you need both.
@@ -217,8 +216,9 @@ val result = clusterer.cluster(itemEmbeds)
 
 ### Core and ML
 
-* **core** → minimal runtime: shared interfaces, data classes, embeddings, media helpers, processor execution, and efficient batch/concurrent processing.
-* **ml** → ML infrastructure and models: model loaders, base models, embedding providers (e.g., CLIP), and few-shot classifiers. Optional or experimental ML-related features can be added under `ml/providers`.
+core → contains all core business logic: shared interfaces, data models, embeddings, clustering, classification, indexing, and processing components for batch/concurrent execution.
+
+ml → contains all machine learning components, including models, providers, and everything they depend on.
 
 ---
 
