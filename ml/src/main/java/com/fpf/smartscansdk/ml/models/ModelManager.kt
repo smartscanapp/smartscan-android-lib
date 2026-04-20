@@ -5,6 +5,15 @@ import android.content.Intent
 import android.net.Uri
 import androidx.core.net.toUri
 import com.fpf.smartscansdk.core.SmartScanException
+import com.fpf.smartscansdk.core.detector.DetectorProvider
+import com.fpf.smartscansdk.core.embeddings.ImageEmbeddingProvider
+import com.fpf.smartscansdk.core.embeddings.TextEmbeddingProvider
+import com.fpf.smartscansdk.ml.providers.detectors.FaceDetector
+import com.fpf.smartscansdk.ml.providers.embeddings.clip.ClipImageEmbedder
+import com.fpf.smartscansdk.ml.providers.embeddings.clip.ClipTextEmbedder
+import com.fpf.smartscansdk.ml.providers.embeddings.dino.DinoV2SmallImageEmbedder
+import com.fpf.smartscansdk.ml.providers.embeddings.inception.InceptionResnetFaceEmbedder
+import com.fpf.smartscansdk.ml.providers.embeddings.minilm.MiniLMTextEmbedder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -142,6 +151,60 @@ object ModelManager {
 
     fun getModelFile(context: Context, modelInfo: ModelInfo): File {
         return File(File(context.filesDir, ROOT_DIR), modelInfo.path)
+    }
+
+    fun getTextEmbedder(context: Context, modelName: ModelName): TextEmbeddingProvider{
+        val modelInfo = ModelRegistry[modelName]!!
+        val modelDir = getModelFile(context, modelInfo)
+        if(!modelExists(context, modelName)) throw SmartScanException.ModelNotDownloaded()
+
+        return when(modelName){
+            ModelName.ALL_MINILM_L6_V2 -> {
+                val modelFile = File(modelDir, modelInfo.resourceFiles!![0] )
+                val vocabFile = File(modelDir, modelInfo.resourceFiles[1] )
+                val configFile = File(modelDir, modelInfo.resourceFiles[2] )
+                MiniLMTextEmbedder(context, modelSource = ModelAssetSource.LocalFile(modelFile), vocabSource = ModelAssetSource.LocalFile(vocabFile), configSource = ModelAssetSource.LocalFile(configFile))
+            }
+            ModelName.CLIP_VIT_B_32_TEXT -> {
+                val modelFile = File(modelDir, modelInfo.resourceFiles!![0] )
+                val vocabFile = File(modelDir, modelInfo.resourceFiles[1] )
+                val mergesFile = File(modelDir, modelInfo.resourceFiles[2] )
+                ClipTextEmbedder(context, modelSource = ModelAssetSource.LocalFile(modelFile), vocabSource = ModelAssetSource.LocalFile(vocabFile), mergesSource = ModelAssetSource.LocalFile(mergesFile))
+            }
+            else -> throw SmartScanException.InvalidModelType("Expected model type ${ModelType.TEXT_ENCODER}, but got $modelInfo.type")
+        }
+    }
+
+    fun getImageEmbedder(context: Context, modelName: ModelName): ImageEmbeddingProvider{
+        val modelInfo = ModelRegistry[modelName]!!
+        val modelFile = getModelFile(context, modelInfo)
+        if(!modelExists(context, modelName)) throw SmartScanException.ModelNotDownloaded()
+
+        return when(modelName){
+            ModelName.DINOV2_SMALL -> {
+                DinoV2SmallImageEmbedder(context, modelSource = ModelAssetSource.LocalFile(modelFile))
+            }
+            ModelName.CLIP_VIT_B_32_IMAGE -> {
+                ClipImageEmbedder(context, modelSource = ModelAssetSource.LocalFile(modelFile))
+            }
+            ModelName.INCEPTION_RESNET_V1 -> {
+                InceptionResnetFaceEmbedder(context, modelSource = ModelAssetSource.LocalFile(modelFile))
+            }
+            else -> throw SmartScanException.InvalidModelType("Expected model type ${ModelType.IMAGE_ENCODER}, but got $modelInfo.type")
+        }
+    }
+
+    fun getObjectDetector(context: Context, modelName: ModelName): DetectorProvider{
+        val modelInfo = ModelRegistry[modelName]!!
+        val modelFile = getModelFile(context, modelInfo)
+        if(!modelExists(context, modelName)) throw SmartScanException.ModelNotDownloaded()
+
+        return when(modelName){
+            ModelName.ULTRA_LIGHT_FACE_DETECTOR -> {
+                FaceDetector(context, modelSource = ModelAssetSource.LocalFile(modelFile))
+            }
+            else -> throw SmartScanException.InvalidModelType("Expected model type ${ModelType.OBJECT_DETECTOR}, but got $modelInfo.type")
+        }
     }
 
     private suspend fun unzipFiles(zipFile: File, targetDir: File): List<File> =
