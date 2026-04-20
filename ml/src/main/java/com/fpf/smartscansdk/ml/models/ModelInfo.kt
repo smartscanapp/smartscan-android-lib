@@ -8,7 +8,7 @@ enum class ModelType {
 
 enum class ModelName {
     ALL_MINILM_L6_V2,
-    ALL_DISTIL_ROBERTA_V1,
+//    ALL_DISTIL_ROBERTA_V1,
     CLIP_VIT_B_32_TEXT,
     CLIP_VIT_B_32_IMAGE,
     DINOV2_SMALL,

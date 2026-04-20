@@ -8,13 +8,13 @@ val ModelRegistry  =  mapOf<ModelName, ModelInfo>(
         name=ModelName.ALL_MINILM_L6_V2,
         resourceFiles=listOf("minilm_sentence_transformer_quant.onnx", "vocab.txt", "config.json")
     ),
-    ModelName.ALL_DISTIL_ROBERTA_V1 to ModelInfo(
-        type= ModelType.TEXT_ENCODER,
-        url="https://github.com/dev-diaries41/smartscan-models/releases/download/1.0.1/all_distilroberta_v1_quant.zip",
-        path="all_distilroberta_v1",
-        name=ModelName.ALL_DISTIL_ROBERTA_V1,
-        resourceFiles=listOf("sentence-transformers_all-distilroberta-v1_quant.onnx", "vocab.json", "merges.txt")
-    ),
+//    ModelName.ALL_DISTIL_ROBERTA_V1 to ModelInfo(
+//        type= ModelType.TEXT_ENCODER,
+//        url="https://github.com/dev-diaries41/smartscan-models/releases/download/1.0.1/all_distilroberta_v1_quant.zip",
+//        path="all_distilroberta_v1",
+//        name=ModelName.ALL_DISTIL_ROBERTA_V1,
+//        resourceFiles=listOf("sentence-transformers_all-distilroberta-v1_quant.onnx", "vocab.json", "merges.txt")
+//    ),
     ModelName.CLIP_VIT_B_32_TEXT to ModelInfo(
         type= ModelType.TEXT_ENCODER,
         url="https://github.com/dev-diaries41/smartscan-models/releases/download/1.0.1/clip_text_encoder_quant.zip",
