@@ -1,19 +1,16 @@
 package com.fpf.smartscansdk.ml.providers.embeddings.dino
 
-import android.app.Application
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.core.graphics.get
+import com.fpf.smartscansdk.core.SmartScanException
 import com.fpf.smartscansdk.core.embeddings.ImageEmbeddingProvider
 import com.fpf.smartscansdk.core.embeddings.normalizeL2
 import com.fpf.smartscansdk.core.media.centerCrop
-import com.fpf.smartscansdk.core.processors.BatchProcessor
+import com.fpf.smartscansdk.ml.models.ModelAssetSource
 import com.fpf.smartscansdk.ml.models.loaders.FileOnnxLoader
 import com.fpf.smartscansdk.ml.models.OnnxModel
 import com.fpf.smartscansdk.ml.models.TensorData
-import com.fpf.smartscansdk.ml.models.loaders.FilePath
-import com.fpf.smartscansdk.ml.models.loaders.ModelSource
-import com.fpf.smartscansdk.ml.models.loaders.ResourceId
 import com.fpf.smartscansdk.ml.models.loaders.ResourceOnnxLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -21,10 +18,9 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 
-
 class DinoV2SmallImageEmbedder(
     private val context: Context,
-    modelSource: ModelSource,
+    modelSource: ModelAssetSource,
 ) : ImageEmbeddingProvider {
 
     companion object  {
@@ -35,9 +31,9 @@ class DinoV2SmallImageEmbedder(
         val MEAN= floatArrayOf(0.485f, 0.456f, 0.406f)
         val STD=floatArrayOf(0.229f, 0.224f, 0.225f)
     }
-    private val model: OnnxModel = when(modelSource){
-        is FilePath -> OnnxModel(FileOnnxLoader(modelSource.path))
-        is ResourceId -> OnnxModel(ResourceOnnxLoader(context.resources, modelSource.resId))
+    private val model: OnnxModel = when(modelSource) {
+        is ModelAssetSource.Resource -> OnnxModel(ResourceOnnxLoader(context.resources, modelSource.resId))
+        is ModelAssetSource.LocalFile -> OnnxModel(FileOnnxLoader(modelSource.file))
     }
 
     override val embeddingDim: Int = 384
@@ -48,29 +44,13 @@ class DinoV2SmallImageEmbedder(
     override fun isInitialized() = model.isLoaded()
 
     override suspend fun embed(data: Bitmap): FloatArray = withContext(Dispatchers.Default) {
-        if (!isInitialized()) throw IllegalStateException("Model not initialized")
+        if (!isInitialized()) throw SmartScanException.ModelNotInitialised()
 
         val inputShape = longArrayOf(DIM_BATCH_SIZE.toLong(), DIM_PIXEL_SIZE.toLong(), IMAGE_SIZE_Y.toLong(), IMAGE_SIZE_X.toLong())
         val imgData: FloatBuffer = preProcess(data)
-        val inputName = model.getInputNames()?.firstOrNull() ?: throw IllegalStateException("Model inputs not available")
+        val inputName = model.getInputNames()!!.first()
         val output = model.run(mapOf(inputName to TensorData.FloatBufferTensor(imgData, inputShape)))
         normalizeL2((output.values.first() as Array<FloatArray>)[0])
-    }
-
-    override suspend fun embedBatch(data: List<Bitmap>): List<FloatArray> {
-        val allEmbeddings = mutableListOf<FloatArray>()
-
-        val processor = object : BatchProcessor<Bitmap, FloatArray>(context = context.applicationContext as Application) {
-            override suspend fun onProcess(context: Context, item: Bitmap): FloatArray {
-                return embed(item)
-            }
-            override suspend fun onBatchComplete(context: Context, batch: List<FloatArray>) {
-                allEmbeddings.addAll(batch)
-            }
-        }
-
-        processor.run(data)
-        return allEmbeddings
     }
 
     override fun closeSession() {

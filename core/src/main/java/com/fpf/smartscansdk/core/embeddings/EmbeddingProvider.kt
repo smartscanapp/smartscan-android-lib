@@ -3,16 +3,16 @@ package com.fpf.smartscansdk.core.embeddings
 import android.graphics.Bitmap
 
 
-interface IEmbeddingProvider<T> {
+interface EmbeddingProvider<T> {
     val embeddingDim: Int
     suspend fun initialize()
     fun isInitialized(): Boolean
     fun closeSession() = Unit
     suspend fun embed(data: T): FloatArray
-    suspend fun embedBatch(data: List<T>): List<FloatArray>
 }
 
-
-typealias TextEmbeddingProvider = IEmbeddingProvider<String>
-typealias ImageEmbeddingProvider = IEmbeddingProvider<Bitmap>
+interface TextEmbeddingProvider : EmbeddingProvider<String> {
+    val maxTokens: Int
+}
+typealias ImageEmbeddingProvider = EmbeddingProvider<Bitmap>
 

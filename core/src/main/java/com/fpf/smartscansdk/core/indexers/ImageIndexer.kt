@@ -4,11 +4,11 @@ import android.content.ContentUris
 import android.content.Context
 import android.provider.MediaStore
 import com.fpf.smartscansdk.core.embeddings.StoredEmbedding
-import com.fpf.smartscansdk.core.embeddings.IEmbeddingStore
+import com.fpf.smartscansdk.core.embeddings.EmbeddingStore
 import com.fpf.smartscansdk.core.embeddings.ImageEmbeddingProvider
 import com.fpf.smartscansdk.core.media.getBitmapFromUri
 import com.fpf.smartscansdk.core.processors.BatchProcessor
-import com.fpf.smartscansdk.core.processors.IProcessorListener
+import com.fpf.smartscansdk.core.processors.ProcessorListener
 import com.fpf.smartscansdk.core.processors.MemoryOptions
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -20,17 +20,14 @@ import kotlinx.coroutines.withContext
 
 class ImageIndexer(
     private val embedder: ImageEmbeddingProvider,
-    private val store: IEmbeddingStore,
+    private val store: EmbeddingStore,
     private val maxImageSize: Int = 225,
     context: Context,
-    listener: IProcessorListener<Long, StoredEmbedding>? = null,
+    listener: ProcessorListener<Long, StoredEmbedding>? = null,
     memoryOptions: MemoryOptions = MemoryOptions(),
     batchSize: Int = 10,
     ): BatchProcessor<Long, StoredEmbedding>(context, listener, memoryOptions, batchSize){
 
-    companion object {
-        const val INDEX_FILENAME = "image_index.bin"
-    }
 
     override suspend fun onBatchComplete(context: Context, batch: List<StoredEmbedding>) {
         store.add(batch)

@@ -1,46 +1,47 @@
 package com.fpf.smartscansdk.ml.providers.embeddings.minilm
 
 import android.content.Context
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.File
 import java.io.InputStreamReader
-import kotlin.collections.toLongArray
 
-class MiniLmTokenizer(
+internal class MiniLmTokenizer(
     private val vocab: Map<String, Int>,
-    private val maxLen: Int,
     private val doLowerCase: Boolean,
     private val unkToken: String,
     private val clsToken: String,
     private val sepToken: String,
-    private val padToken: String
 ) {
 
     companion object {
-         fun fromRawResources(context: Context, vocabResId: Int, configResId: Int): MiniLmTokenizer {
-                // Load vocab
-                val vocabMap: Map<String, Int> = context.resources.openRawResource(vocabResId)
-                    .bufferedReader()
-                    .useLines { lines -> lines.mapIndexed { idx, token -> token to idx }.toMap() }
 
-
-                // Load config
-                val configText = context.resources.openRawResource(configResId).use { input ->
-                    InputStreamReader(input, "UTF-8").readText()
-                }
-                val configJson = JSONObject(configText)
-
-                return MiniLmTokenizer(
-                    vocab = vocabMap,
-                    maxLen = configJson.optInt("max_length", 128),
-                    doLowerCase = configJson.optBoolean("do_lower_case", true),
-                    unkToken = configJson.optString("unk_token", "[UNK]"),
-                    clsToken = configJson.optString("cls_token", "[CLS]"),
-                    sepToken = configJson.optString("sep_token", "[SEP]"),
-                    padToken = configJson.optString("pad_token", "[PAD]")
-                )
+        private fun loadFromSources(vocabReader: BufferedReader, configReader: BufferedReader): MiniLmTokenizer {
+            val vocabMap: Map<String, Int> = vocabReader.useLines { lines ->
+                lines.mapIndexed { idx, token -> token to idx }.toMap()
             }
+
+            val configText = configReader.use { it.readText() }
+            val configJson = JSONObject(configText)
+
+            return MiniLmTokenizer(
+                vocab = vocabMap,
+                doLowerCase = configJson.optBoolean("do_lower_case", true),
+                unkToken = configJson.optString("unk_token", "[UNK]"),
+                clsToken = configJson.optString("cls_token", "[CLS]"),
+                sepToken = configJson.optString("sep_token", "[SEP]"),
+            )
+        }
+
+        fun load(context: Context, vocabResId: Int, configResId: Int): MiniLmTokenizer {
+            return loadFromSources(
+                context.resources.openRawResource(vocabResId).bufferedReader(),
+                InputStreamReader(context.resources.openRawResource(configResId), "UTF-8").buffered()
+            )
+        }
+        fun load(vocabFile: File, configFile: File): MiniLmTokenizer {
+            return loadFromSources(vocabFile.bufferedReader(), configFile.bufferedReader())
+        }
     }
 
     private fun preprocess(text: String): String {
@@ -81,20 +82,15 @@ class MiniLmTokenizer(
         return pre.split(" ").flatMap { wordPiece(it) }
     }
 
-    fun encode(text: String): Pair<LongArray, LongArray> {
+    fun encode(text: String): Pair<IntArray, IntArray> {
         val tokens = listOf(clsToken) + tokenize(text) + listOf(sepToken)
-        val ids = tokens.map { vocab[it] ?: vocab[unkToken]!! }.toMutableList()
-        val attention = MutableList(ids.size) { 1L }
+        val ids = IntArray(tokens.size)
+        val mask = IntArray(tokens.size)
 
-        if (ids.size > maxLen) {
-            ids.subList(maxLen, ids.size).clear()
-            attention.subList(maxLen, attention.size).clear()
-        } else if (ids.size < maxLen) {
-            val padLength = maxLen - ids.size
-            ids.addAll(List(padLength) { vocab[padToken]!! })
-            attention.addAll(List(padLength) { 0L })
+        for (i in tokens.indices) {
+            ids[i] = vocab[tokens[i]] ?: vocab[unkToken]!!
+            mask[i] = 1
         }
-
-        return ids.map { it.toLong() }.toLongArray() to attention.map { it }.toLongArray()
+        return ids to mask
     }
 }

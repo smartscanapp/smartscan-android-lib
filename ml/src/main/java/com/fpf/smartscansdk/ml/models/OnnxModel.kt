@@ -3,12 +3,13 @@ package com.fpf.smartscansdk.ml.models
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
-import com.fpf.smartscansdk.ml.models.loaders.IModelLoader
+import com.fpf.smartscansdk.core.SmartScanException
+import com.fpf.smartscansdk.ml.models.loaders.ModelLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 
-class OnnxModel(override val loader: IModelLoader<ByteArray>) : BaseModel<TensorData>() {
+class OnnxModel(override val loader: ModelLoader<ByteArray>) : BaseModel<TensorData>() {
     private val env: OrtEnvironment = OrtEnvironment.getEnvironment()
     private var session: OrtSession? = null
 
@@ -22,7 +23,7 @@ class OnnxModel(override val loader: IModelLoader<ByteArray>) : BaseModel<Tensor
     override fun isLoaded(): Boolean = session != null
 
     override fun run(inputs: Map<String, TensorData>): Map<String, Any> {
-        val s = session ?: throw IllegalStateException("Model not loaded")
+        val s = session ?: throw SmartScanException.ModelNotInitialised()
         val createdTensors: Map<String, OnnxTensor> = inputs.mapValues { (_, tensorData) ->
             createOnnxTensor(tensorData)
         }
@@ -32,7 +33,7 @@ class OnnxModel(override val loader: IModelLoader<ByteArray>) : BaseModel<Tensor
                 return results.associate { it.key to it.value.value }
             }
         } finally {
-            createdTensors.values.forEach { try { it.close() } catch (ignored: Exception) {} }
+            createdTensors.values.forEach { try { it.close() } catch (_: Exception) {} }
         }
     }
 

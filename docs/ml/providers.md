@@ -1,107 +1,32 @@
 # Providers
 
-## Overview
+All providers implement `EmbeddingProvider<T>`. Both bundled and downloaded models are supported. The recommended way to use downloaded models is via ModelManager.
 
-This section of the documentation covers information about model providers.
+## Examples
 
----
-
-## Embedding Providers
-
-### `ClipImageEmbedder`
-
-Reference implementation of `ImageEmbeddingProvider` using a CLIP ONNX model. Generates embedding of images.
-
-**Key points:**
-
-* Accepts `FilePath` or `ResourceId` model source.
-* Requires explicit `initialize()` before embedding.
-* Returns 512-D normalized vectors.
-* Supports batch processing.
-
-| Method                         | Description                       |
-|--------------------------------|-----------------------------------|
-| `initialize()`                 | Loads the ONNX model into memory  |
-| `isInitialized()`              | Checks model state                |
-| `embed(bitmap)`                | Generates embedding from a bitmap |
-| `embedBatch(context, bitmaps)` | Batch embedding                   |
-| `closeSession()`               | Frees model resources             |
-
-**Usage Example:**
+### Downloaded model
 
 ```kotlin
-val imageEmbedder = ClipImageEmbedder(context, ModelSource.FilePath("/models/clip_image.onnx"))
-imageEmbedder.initialize()
-val embedding = imageEmbedder.embed(bitmap)
-imageEmbedder.closeSession()
+val textEmbedder = ModelManager.getTextEmbedder(application, ModelName.ALL_MINILM_L6_V2)
+val imageEmbedder = ModelManager.getImageEmbedder(application, ModelName.DINOV2_SMALL)
+val objectDetector = ModelManager.getObjectDetector(application, ModelName.ULTRA_LIGHT_FACE_DETECTOR)
 ```
 
----
-
-### `ClipTextEmbedder`
-
-Reference implementation of `TextEmbeddingProvider` using a CLIP ONNX model and built-in tokenizer. Generates embedding of text.
-
-**Key points:**
-
-* Accepts bundled (`ResourceId`) or local (`FilePath`) models.
-* Produces normalized 512-D vectors.
-* Includes batch processing support.
-
-| Method                       | Description                   |
-|------------------------------|-------------------------------|
-| `initialize()`               | Loads model weights           |
-| `isInitialized()`            | Checks model state            |
-| `embed(text)`                | Encodes and embeds input text |
-| `embedBatch(context, texts)` | Batch text embedding          |
-| `closeSession()`             | Releases resources            |
-
-**Usage Example:**
+### Bundled model
 
 ```kotlin
-val textEmbedder = ClipTextEmbedder(context, ModelSource.FilePath("/models/clip_text.onnx"))
-textEmbedder.initialize()
-val embedding = textEmbedder.embed(text)
-textEmbedder.closeSession()
+val textEmbedder = ClipTextEmbedder(application, ModelAssetSource.Resource(R.raw.clip_text_encoder_quant), vocabSource = ModelAssetSource.Resource(R.raw.vocab), mergesSource = ModelAssetSource.Resource(R.raw.merges))
+val imageEmbedder = ClipImageEmbedder(application, ModelAssetSource.Resource(R.raw.clip_image_encoder_quant))
 ```
 
----
+## Supported image embedders
 
-### `MiniLMTextEmbedder`
+* dinov2_small
+* clip_vit_b_32_image
+* inception_resnet_v1 (face)
 
-Reference implementation of `TextEmbeddingProvider` using a Mini-LM ONNX model and built-in tokenizer. Generates embedding of text. It is preferred over ClipTextEmbedder for pure text similarity usecases.
+## Supported text embedders
 
-**Key points:**
+* all_minilm_l6_v2
+* clip_vit_b_32_text
 
-* Accepts bundled (`ResourceId`) or local (`FilePath`) models.
-* Produces normalized 512-D vectors.
-* Includes batch processing support.
-
-| Method                       | Description                   |
-|------------------------------|-------------------------------|
-| `initialize()`               | Loads model weights           |
-| `isInitialized()`            | Checks model state            |
-| `embed(text)`                | Encodes and embeds input text |
-| `embedBatch(context, texts)` | Batch text embedding          |
-| `closeSession()`             | Releases resources            |
-
-**Usage Example:**
-
-```kotlin
-val textEmbedder = MiniLMTextEmbedder(context, ModelSource.FilePath("/models/minilm.onnx"))
-textEmbedder.initialize()
-val embedding = textEmbedder.embed(text)
-textEmbedder.closeSession()
-```
-
----
-
-
-## **Extending**
-
-To implement a custom embedding provider:
-
-1. Implement `IEmbeddingProvider<T>` for your data type.
-2. Ensure consistent output dimension (`embeddingDim`).
-
----

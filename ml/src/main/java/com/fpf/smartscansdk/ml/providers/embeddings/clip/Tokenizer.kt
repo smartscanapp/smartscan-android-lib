@@ -1,11 +1,58 @@
 package com.fpf.smartscansdk.ml.providers.embeddings.clip
 
-class ClipTokenizer(
+import android.content.Context
+import android.util.JsonReader
+import java.io.BufferedReader
+import java.io.File
+import java.io.InputStream
+import java.io.InputStreamReader
+
+internal class ClipTokenizer(
     private val encoder: Map<String, Int>,
     private val bpeRanks: Map<Pair<String, String>, Int>,
 ) {
-    private val encodeRegex =
-        Regex("""<\|startoftext\|>|<\|endoftext\|>|'s|'t|'re|'ve|'m|'ll|'d|[\p{L}]+|[\p{N}]|[^\s\p{L}\p{N}]+""")
+        companion object {
+
+            fun load(context: Context, vocabResId: Int, mergesResId: Int): ClipTokenizer {
+                val resources = context.resources
+                val encoder = readEncoder(resources.openRawResource(vocabResId))
+                val bpeRanks = readBpeRanks(resources.openRawResource(mergesResId))
+                return ClipTokenizer(encoder, bpeRanks)
+            }
+
+            fun load(vocabFile: File, mergesFile: File): ClipTokenizer {
+                val encoder = readEncoder(vocabFile.inputStream())
+                val bpeRanks = readBpeRanks(mergesFile.inputStream())
+                return ClipTokenizer(encoder, bpeRanks)
+            }
+
+            private fun readEncoder(stream: InputStream): Map<String, Int> {
+                val map = hashMapOf<String, Int>()
+                stream.use { s ->
+                    val reader = JsonReader(InputStreamReader(s, "UTF-8"))
+                    reader.beginObject()
+                    while (reader.hasNext()) {
+                        map[reader.nextName().replace("</w>", " ")] = reader.nextInt()
+                    }
+                    reader.close()
+                }
+                return map
+            }
+
+            private fun readBpeRanks(stream: InputStream): Map<Pair<String, String>, Int> {
+                val map = hashMapOf<Pair<String, String>, Int>()
+                stream.use { s ->
+                    BufferedReader(InputStreamReader(s)).useLines { lines ->
+                        lines.drop(1).forEachIndexed { i, line ->
+                            val parts = line.split(" ")
+                            map[parts[0] to parts[1].replace("</w>", " ")] = i
+                        }
+                    }
+                }
+                return map
+            }
+    }
+    private val encodeRegex = Regex("""<\|startoftext\|>|<\|endoftext\|>|'s|'t|'re|'ve|'m|'ll|'d|[\p{L}]+|[\p{N}]|[^\s\p{L}\p{N}]+""")
 
     fun encode(text: String): MutableList<Int> {
         val tokens = encodeRegex.findAll(text).map { result ->

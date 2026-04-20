@@ -11,7 +11,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        minSdk = 30
+        minSdk = 28
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -51,6 +51,14 @@ android {
             }
         }
     }
+
+    externalNativeBuild {
+        cmake {
+            path ("src/main/cpp/CMakeLists.txt")
+        }
+    }
+
+    ndkVersion = "27.0.12077973"
 
 }
 

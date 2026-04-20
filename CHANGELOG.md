@@ -1,3 +1,36 @@
+## v2.0.0 - 19/04/2026
+
+### Added
+* Added model manager with tests
+* Added clustering package, with incremental clustering
+* Added `HNSWIndex` to embeddings/ package
+* Added classification package
+* Added token max length to TextEmbeddingProvider
+* Made tokenizers internal
+* Added SmartScanException
+* Added update method to `IEmbeddingStore`
+* Added save method to `IEmbeddingStore`
+
+### Changed
+* Renamed ModelSource with ModelAssetSource and added core/models package
+* Renamed updatePrototype to updatePrototypeEmbedding
+* Renamed filterIds to ids in `IEmbeddingStore` query method and use Set instead of Long
+* Return number of items removed in `IEmbeddingStore` remove method
+* Return number of items added in `IEmbeddingStore` add method
+* Refactor `FileEmbeddingStore` to use a persistent file offset index with in-place updates
+* `FileEmbeddingStore` remove method now only removes items from cache and removal are not automatically persisted, call save method to persist removals. Add and update methods both remain write-though.
+* MinSDK changed to 28 (previously 30).
+* Removed embedBatch method from `IEmbeddingProvider` and added as util method instead in embeddings/ package
+* Remove detector/face package and added contents to detectors/
+
+### Fixed
+* Filter ids before running query in `FileEmbeddingStore`
+* Made `FileEmbeddingStore` thread-safe
+
+### Removed
+* Removed `FileEmbeddingStore` pagination query overload
+
+
 ## v1.3.0 - 21/12/2025
 
 ### Added

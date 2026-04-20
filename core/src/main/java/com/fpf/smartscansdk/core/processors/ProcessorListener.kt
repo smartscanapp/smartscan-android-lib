@@ -2,7 +2,7 @@ package com.fpf.smartscansdk.core.processors
 
 import android.content.Context
 
-interface IProcessorListener<Input, Output> {
+interface ProcessorListener<Input, Output> {
     suspend fun onActive(context: Context) = Unit
     suspend fun onBatchComplete(context: Context, batch: List<Output>) = Unit
     suspend fun onComplete(context: Context, metrics: Metrics.Success) = Unit

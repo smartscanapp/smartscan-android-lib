@@ -5,10 +5,10 @@ import ai.onnxruntime.OrtEnvironment
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.test.core.app.ApplicationProvider
+import com.fpf.smartscansdk.core.embeddings.embedBatch
+import com.fpf.smartscansdk.ml.models.ModelAssetSource
 import com.fpf.smartscansdk.ml.models.OnnxModel
 import com.fpf.smartscansdk.ml.models.TensorData
-import com.fpf.smartscansdk.ml.models.loaders.ResourceId
-import com.fpf.smartscansdk.ml.providers.embeddings.clip.ClipImageEmbedder
 import com.fpf.smartscansdk.ml.providers.embeddings.clip.ClipImageEmbedder.Companion.IMAGE_SIZE_X
 import com.fpf.smartscansdk.ml.providers.embeddings.clip.ClipImageEmbedder.Companion.IMAGE_SIZE_Y
 import io.mockk.*
@@ -47,8 +47,8 @@ class ClipImageEmbedderInstrumentedTest {
     }
 
     @Test
-    fun `initialize calls model loadModel and sets initialized`() = runBlocking {
-        val embedder = ClipImageEmbedder(context, ResourceId(0))
+    fun modelInitializationTest() = runBlocking {
+        val embedder = ClipImageEmbedder(context, ModelAssetSource.Resource(0))
 
         // replace private model with a mock
         val mockModel = mockk<OnnxModel>(relaxed = true)
@@ -66,8 +66,8 @@ class ClipImageEmbedderInstrumentedTest {
     }
 
     @Test
-    fun `embed returns normalized vector of expected dimension`() = runBlocking {
-        val embedder = ClipImageEmbedder(context, ResourceId(0))
+    fun embeddingTest() = runBlocking {
+        val embedder = ClipImageEmbedder(context, ModelAssetSource.Resource(0))
 
         // mock internal model
         val mockModel = mockk<OnnxModel>(relaxed = true)
@@ -100,8 +100,8 @@ class ClipImageEmbedderInstrumentedTest {
     }
 
     @Test
-    fun `embedBatch returns embeddings for all items`() = runBlocking {
-        val embedder = ClipImageEmbedder(context, ResourceId(0))
+    fun batchEmbeddingTest() = runBlocking {
+        val embedder = ClipImageEmbedder(context, ModelAssetSource.Resource(0))
 
         val mockModel = mockk<OnnxModel>(relaxed = true)
         every { mockModel.isLoaded() } returns true
@@ -121,16 +121,15 @@ class ClipImageEmbedderInstrumentedTest {
 
         val bmp1 = Bitmap.createBitmap(IMAGE_SIZE_X, IMAGE_SIZE_Y, Bitmap.Config.ARGB_8888)
         val bmp2 = Bitmap.createBitmap(IMAGE_SIZE_X, IMAGE_SIZE_Y, Bitmap.Config.ARGB_8888)
-
-        val results = embedder.embedBatch( listOf(bmp1, bmp2))
+        val results = embedBatch(  context.applicationContext, embedder,listOf(bmp1, bmp2))
 
         assertEquals(2, results.size)
         assertEquals(embedder.embeddingDim, results[0].size)
     }
 
     @Test
-    fun `closeSession closes model once`() {
-        val embedder = ClipImageEmbedder(context, ResourceId(0))
+    fun closeSessionTest() {
+        val embedder = ClipImageEmbedder(context, ModelAssetSource.Resource(0))
         val mockModel = mockk<OnnxModel>(relaxed = true)
         val modelField = embedder::class.java.getDeclaredField("model")
         modelField.isAccessible = true

@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger
 // For BatchProcessor’s use case—long-running, batched,  asynchronous processing—the Application context should be used.
 abstract class BatchProcessor<Input, Output>(
     private val context: Context,
-    protected val listener: IProcessorListener<Input, Output>? = null,
+    protected val listener: ProcessorListener<Input, Output>? = null,
     private val memoryOptions: MemoryOptions = MemoryOptions(),
     val batchSize: Int = 10
 ) {

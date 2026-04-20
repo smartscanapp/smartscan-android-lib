@@ -1,5 +1,3 @@
-import java.io.ByteArrayOutputStream
-
 plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
@@ -11,7 +9,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        minSdk = 30
+        minSdk = 28
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
     }
@@ -38,10 +36,6 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
-    }
-
-    buildFeatures {
-        // Add any enabled features here if needed
     }
 
     lint {

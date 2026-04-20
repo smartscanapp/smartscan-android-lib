@@ -3,19 +3,16 @@
 ## Table of Contents
 
 * [Overview](#overview)
-* [Quick Start](#quick-start)
 * [Documentation](docs/README.md)
-* [Key Structure](#key-structure)
 * [Installation](#installation)
+* [Quick Start](#quick-start)
 
-  + [1. Install Core Module](#1-install-core-module)
-  + [2. Install ML Module (Optional)](#2-install-ml-module-optional)
+  - [1. Install Core Module](#1-install-core-module)
+  - [2. Install ML Module (Optional)](#2-install-ml-module-optional)
 * [Design Choices](#design-choices)
-
-  + [Core and ML](#core-and-ml)
-  + [Constraints](#constraints)
-  + [Model](#model)
-  + [Embedding Storage](#embedding-storage)
+  - [Core and ML](#core-and-ml)
+  - [Model](#model)
+  - [Embedding Storage](#embedding-storage)
     - [Benchmark Summary](#benchmark-summary) 
 
 * [Gradle / Kotlin Setup Notes](#gradle--kotlin-setup-notes)
@@ -23,167 +20,23 @@
 
 ## **Overview**
 
-SmartScanSdk is a modular Android SDK that powers the **SmartScan app**. It provides tools for:
+SmartScanSdk is an Android library that powers the **SmartScan app**, providing tools for:
 
-* Image & video processing
 * On-device ML inference
-* Semantic media indexing and search
+* Semantic search
+* Indexing
+* Embedding storage
+* Incremental clustering
+* ANN Search / HNSW Index
 * Few shot classification
+* Image & video processing
 * Efficient batch processing
+* Model management
 
 
 > **Note:** The SDK is designed to be flexible, but its primary use is for the SmartScan app and other apps I am developing. It is also subject to rapid experimental changes.
 
 ---
-
-## Quick Start
-
-Below is information on how to get started with embedding, indexing, and searching.
-
-### Embeddings
-
-#### Text Embeddings
-
-Generate vector embeddings from text strings or batches of text for tasks such as semantic search or similarity comparison.
-
-**Usage Example:**
-
-```kotlin
-//import com.fpf.smartscansdk.ml.models.providers.embeddings.clip.ClipTextEmbedder
-
-// Requires model to be in raw resources at e.g res/raw/text_encoder_quant_int8.onnx 
-val textEmbedder = ClipTextEmbedder(context, ResourceId(R.raw.text_encoder_quant_int8))
-val text = "Hello smartscan"
-val embedding = textEmbedder.embed(text)
-
-```
-
-**Batch Example:**
-
-```kotlin
-val texts = listOf("first sentence", "second sentence")
-val embeddings = textEmbedder.embedBatch(texts)
-```
-
----
-
-#### Image Embeddings
-
-Generate vector embeddings from images (as `Bitmap`) for visual search or similarity tasks.
-
-**Usage Example**
-
-```kotlin
-//import com.fpf.smartscansdk.ml.models.providers.embeddings.clip.ClipImageEmbedder
-
-// Requires model to be in raw resources at e.g res/raw/image_encoder_quant_int8.onnx 
-val imageEmbedder = ClipImageEmbedder(context, ResourceId(R.raw.image_encoder_quant_int8))
-
-val embedding = imageEmbedder.embed(bitmap)
-
-```
-
-
-**Batch Example:**
-
-```kotlin
-val images: List<Bitmap> = ...
-val embeddings = imageEmbedder.embedBatch(images)
-```
-
-### Indexing
-
-To get started with indexing media quickly, you can use the provided `ImageIndex` and `VideoIndexer` classes as shown below. You can optionally create your own indexers (including for text related data) by implementing the `BatchProcessor` interface. See docs for more details.
-
-#### Image Indexing
-
-Index images to enable similarity search. The index is saved as a binary file and managed with a FileEmbeddingStore.
-> **Important**: During indexing the MediaStore Id is used to as the id in the `Embedding` which is stored. This can later be used for retrieval.
-
-
-```kotlin
-val imageEmbedder = ClipImageEmbedder(context, ResourceId(R.raw.image_encoder_quant_int8))
-val imageStore = FileEmbeddingStore(File(context.filesDir, "image_index.bin"), imageEmbedder.embeddingDim, useCache = false) // cache not needed for indexing
-val imageIndexer = ImageIndexer(imageEmbedder, context=context, listener = null, store = imageStore) //optionally pass a listener to handle events
-val ids = getImageIds() // placeholder function to get MediaStore image ids
-imageIndexer.run(ids)
-```
-
-#### Video Indexing
-
-Index videos to enable similarity search. The index is saved as a binary file and managed with a FileEmbeddingStore.
-
-```kotlin
-val imageEmbedder = ClipImageEmbedder(context, ResourceId(R.raw.image_encoder_quant_int8))
-val videoStore = FileEmbeddingStore(File(context.filesDir,  "video_index.bin"), imageEmbedder.embeddingDim, useCache = false )
-val videoIndexer = VideoIndexer(imageEmbedder, context=context, listener = null, store = videoStore, width = ClipConfig.IMAGE_SIZE_X, height = ClipConfig.IMAGE_SIZE_Y)
-val ids = getVideoIds() // placeholder function to get MediaStore video ids
-videoIndexer.run(ids)
-```
-
-### Searching
-
-Below shows how to search using both text queries and an image. The returns results are List<Embedding>. You can use the id from each one, which corresponds to the MediaStore id, to retrieve the result images.
-
-#### Text-to-Image Search
-
- ```kotlin
-val imageStore = FileEmbeddingStore(File(context.filesDir, "image_index.bin"), imageEmbedder.embeddingDim, useCache = false) // cache not needed for indexing
-val imageRetriever = FileEmbeddingRetriever(imageStore)
-val textEmbedder = ClipTextEmbedder(context, ResourceId(R.raw.text_encoder_quant_int8))
-val query = "my search query"
-val embedding = textEmbedder.embed(query)
-val topK = 20
-val similarityThreshold = 0.2f
-val results = retriever.query(embedding, topK, similarityThreshold)
-
-```
-
-#### Reverse Image Search
-
-```kotlin
-val imageStore = FileEmbeddingStore(File(context.filesDir, "image_index.bin"), imageEmbedder.embeddingDim, useCache = false) // cache not needed for indexing
-val imageRetriever = FileEmbeddingRetriever(imageStore)
-val imageEmbedder = ClipImageEmbedder(context, ResourceId(R.raw.image_encoder_quant_int8))
-val embedding = imageEmbedder.embed(bitmap)
-val topK = 20
-val similarityThreshold = 0.2f
-val results = retriever.query(embedding, topK, similarityThreshold)
-
-```
-
----
-
-## Key Structure
-
-```
-SmartScanSdk/
- ├─ core/                                   # Essential functionality
- │   ├─ data/                               # Data classes and processor interfaces
- │   ├─ embeddings/                         # Embedding utilities and file-based stores
- │   ├─ indexers/                           # Image and video indexers
- │   ├─ media/                              # Media helpers (image/video utils)
- │   └─ processors/                         # Batch processing and memory helpers
- │
- └─ ml/                                     # On-device ML infrastructure + models
-     ├─ data/                               # Model loaders and data classes
-     └─ models/                             # Base ML models and providers
-         └─ providers/
-             └─ embeddings/                 # Embedding providers
-                 ├─ clip/                   # CLIP image & text embedder
-                 └─ FewShotClassifier.kt    # Few-shot classifier
-
-├─ build.gradle  
-└─ settings.gradle  
-```
-
-**Notes:**
-
-* `core` and `ml` are standalone Gradle modules.
-* Both are set up for **Maven publishing**.
-* The structure replaces the old `core` and `extensions` module in versions ≤1.0.4
-
- ---
 
 ## Installation
 
@@ -215,6 +68,151 @@ implementation("com.github.dev-diaries41.smartscan-sdk:smartscan-ml:1.1.0")
 
 ---
 
+## Quick Start
+
+Below is information on how to get started with embedding, clustering, indexing, and searching.
+
+### Embeddings
+
+You can use bundled or downloaded models, see [docs](docs/ml/providers.md) for more details.
+
+#### Text Embeddings
+
+Generate vector embeddings from text strings or batches of text for tasks such as semantic search or similarity comparison.
+
+**Usage Example:**
+
+```kotlin
+//import com.fpf.smartscansdk.ml.models.providers.embeddings.clip.ClipTextEmbedder
+
+// downloaded model
+val textEmbedder = ModelManager.getTextEmbedder(application, ModelName.ALL_MINILM_L6_V2)
+
+// bundled model
+val textEmbedder = ClipTextEmbedder(application, ModelAssetSource.Resource(R.raw.clip_text_encoder_quant), vocabSource = ModelAssetSource.Resource(R.raw.vocab), mergesSource = ModelAssetSource.Resource(R.raw.merges))
+val text = "Hello smartscan"
+val embedding = textEmbedder.embed(text)
+
+```
+
+**Batch Example:**
+
+Specifically designed for large batches
+
+```kotlin
+val texts = listOf("first sentence", "second sentence")
+val embeddings = embedBatch(context, textEmbedder, texts)
+```
+
+---
+
+#### Image Embeddings
+
+Generate vector embeddings from images (as `Bitmap`) for visual search or similarity tasks.
+
+**Usage Example**
+
+```kotlin
+//import com.fpf.smartscansdk.ml.models.providers.embeddings.clip.ClipImageEmbedder
+
+// downloaded model
+val imageEmbedder = ModelManager.getImageEmbedder(application, ModelName.DINOV2_SMALL)
+
+// bundled model
+val imageEmbedder = ClipImageEmbedder(application, ModelAssetSource.Resource(R.raw.clip_image_encoder_quant))
+
+val embedding = imageEmbedder.embed(bitmap)
+
+```
+
+
+**Batch Example:**
+
+```kotlin
+val images = listOf<Bitmap>()
+val embeddings = embedBatch(context, imageEmbedder, images)
+```
+
+### Indexing
+
+To get started with indexing media quickly, you can use the provided `ImageIndex` and `VideoIndexer` classes as shown below. You can optionally create your own indexers (including for text related data) by extending the `BatchProcessor`. See [docs](docs/core/processors.md) for more details.
+
+#### Image Indexing
+
+Index images to enable similarity search. The index is saved as a binary file and managed with a FileEmbeddingStore.
+> **Important**: During indexing the MediaStore Id is used to as the id in the `StoredEmbedding` which is stored. This can later be used for retrieval.
+
+
+```kotlin
+val imageEmbedder = ClipImageEmbedder(context, ResourceId(R.raw.image_encoder_quant_int8))
+val imageStore = FileEmbeddingStore(File(context.filesDir, "image_index.bin"), imageEmbedder.embeddingDim) 
+val imageIndexer = ImageIndexer(imageEmbedder, context=context, listener = null, store = imageStore) //optionally pass a listener to handle events
+val ids = getImageIds() // placeholder function to get MediaStore image ids
+imageIndexer.run(ids)
+```
+
+#### Video Indexing
+
+Index videos to enable similarity search. The index is saved as a binary file and managed with a FileEmbeddingStore.
+> **Important**: During indexing the MediaStore Id is used to as the id in the `StoredEmbedding` which is stored. This can later be used for retrieval.
+
+```kotlin
+val imageEmbedder = ClipImageEmbedder(context, ResourceId(R.raw.image_encoder_quant_int8))
+val videoStore = FileEmbeddingStore(File(context.filesDir,  "video_index.bin"), imageEmbedder.embeddingDim )
+val videoIndexer = VideoIndexer(imageEmbedder, context=context, listener = null, store = videoStore, width = ClipConfig.IMAGE_SIZE_X, height = ClipConfig.IMAGE_SIZE_Y)
+val ids = getVideoIds() // placeholder function to get MediaStore video ids
+videoIndexer.run(ids)
+```
+
+### Searching
+
+Below shows how to search using both text queries and an image. The returns results are List<Embedding>. You can use the id from each one, which corresponds to the MediaStore id, to retrieve the result images.
+
+#### Text-to-Image Search
+
+ ```kotlin
+val imageStore = FileEmbeddingStore(File(context.filesDir, "image_index.bin"), imageEmbedder.embeddingDim) 
+val query = "my search query"
+val embedding = textEmbedder.embed(query)
+val topK = 20
+val similarityThreshold = 0.2f
+val results = imageStore.query(embedding, topK, similarityThreshold) // returns image ids, optionally pass filter ids
+
+```
+
+#### Reverse Image Search
+
+```kotlin
+val imageStore = FileEmbeddingStore(File(context.filesDir, "image_index.bin"), imageEmbedder.embeddingDim) 
+val embedding = imageEmbedder.embed(bitmap)
+val topK = 20
+val similarityThreshold = 0.2f
+val results = imageStore.query(embedding, topK, similarityThreshold)
+```
+
+#### ANN Search (HNSW Index)
+
+```kotlin
+val annIndex = HNSWIndex(dim=512)
+val query = "my search query"
+val embedding = textEmbedder.embed(query)
+val topK = 5
+val results = annIndex.query(embedding, topK) // returns nearest neighbour indices must map to item id
+```
+
+### Clustering
+
+Incremental clustering groups embeddings as they are added see [docs](docs/core/clustering.md) for more details.
+
+```kotlin
+val imageStore = FileEmbeddingStore(File(context.filesDir, "image_index.bin"), imageEmbedder.embeddingDim) 
+val itemEmbeds = store.get()
+val existingClusters: Map<Long, Cluster> = emptyMap() // optionally pass existing clusters
+val clusterer = IncrementalClusterer(existingClusters = existingClusters, defaultThreshold = 0.4f)
+val result = clusterer.cluster(itemEmbeds)
+```
+---
+
 ## Design Choices
 
 ### Core and ML
@@ -222,30 +220,15 @@ implementation("com.github.dev-diaries41.smartscan-sdk:smartscan-ml:1.1.0")
 * **core** → minimal runtime: shared interfaces, data classes, embeddings, media helpers, processor execution, and efficient batch/concurrent processing.
 * **ml** → ML infrastructure and models: model loaders, base models, embedding providers (e.g., CLIP), and few-shot classifiers. Optional or experimental ML-related features can be added under `ml/providers`.
 
-This structure replaces the old `core` and `extensions` modules from versions 1.0.4 and below. It provides more clarity and allows consumers to use core non-ML functionality independently. For the most part, the code itself remains unchanged; only the file organization has been updated. Documentation will be updated shortly.
-
----
-
-### Constraints
-
-* Full index must be loaded in-memory on Android (no native vector DB support).
-* Some users have 40K+ images, so fast processing and loading are critical.
-* Balance speed and memory/CPU use across devices (1GB–8GB memory range).
-* Concurrency improves speed but increases CPU usage, heat, and battery drain.
-
-To mitigate the constraints described above, all bulk ml relate processing is done using dynamic, concurrent batch processing via the use of `BatchProcessor`, which uses available memory to self-adjust concurrency between batches
-
-### Model
-
-Supports models stored locally or bundled in the app.
-
 ---
 
 ### Embedding Storage
 
-The SDK only provides a file based implementation of `IEmbeddingStore`, `FileEmbeddingStore` (in core) because the following benchmarks below show much better performance for the loading of embeddings
+The SDK only provides a file based implementation of `EmbeddingStore`, `FileEmbeddingStore` (in core) because the following benchmarks below show much better performance for loading embeddings in comparison to Room.
 
 #### **Benchmark Summary**
+
+File-based memory-mapped loading is significantly faster and scales better.
 
 **Real-Life Test Results**
 
@@ -267,14 +250,13 @@ The SDK only provides a file based implementation of `IEmbeddingStore`, `FileEmb
 
 ![SmartScan Load Benchmark](./benchmarks/smartscan-load-benchmark.png)
 
-File-based memory-mapped loading is significantly faster and scales better.
 
 ___
 
 ## Gradle / Kotlin Setup Notes
 
 * Java 17 / Kotlin JVM 17
-* `compileSdk = 36`, `targetSdk = 34`, `minSdk = 30`
+* `compileSdk = 36`, `targetSdk = 34`, `minSdk = 28`
 * `core` exposes `androidx.core:core-ktx`
 * `ml` depends on `core` and ONNX Runtime
 
