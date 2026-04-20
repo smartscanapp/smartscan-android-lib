@@ -30,6 +30,7 @@
 ### Removed
 * Removed `FileEmbeddingStore` pagination query overload
 
+--- 
 
 ## v1.3.0 - 21/12/2025
 
@@ -43,6 +44,7 @@
 ### Removed
 * Removed `PrototypeEmbedding` class. For classification, StoredEmbedding is now used and id: Long, represent classId. Use is expected to store mapping to string if needed.
 
+---
 
 ## v1.2.1 - 17/12/2025
 
@@ -61,6 +63,7 @@
 ### Removed
 * Removed `useCache`
 
+---
 
 ## v1.2.0 - 26/11/2025
 
@@ -73,12 +76,13 @@
 * Removed `ProcessOptions` (breaking)
 * Removed data packages for both core and ml modules and moved the files into relevant packages
 
+---
+
 ## v1.1.1 - 04/11/2025
 
 ### Added
 * Added new text embedding provider, Mini-LM
 *  Add `initialized` and `isInitialized` to `IEmbeddingProvider`"
-
 
 ### Changed
 * IEmbeddingProvider is require to provider `embeddingDim` variable (used to be optional)
@@ -87,6 +91,8 @@
   - Moved to core/embeddings: `IEmbeddingStore`, `IRetriever`, `IEmbeddingProvider`
   - Moved to core/processor: `IProcessorListener`
   - Moved to ml/models: `IModelLoader`
+
+---
 
 ## v1.1.0 - 30/10/2025
 
@@ -102,18 +108,16 @@
 * `BatchProcessor` now accepts a `Context` (uses `applicationContext` internally).
 
 ### Fixed
-
 * fix `ClipTextEmbedder`: prevent IllegalCapacity in embed
 
-
 ### Removed
-
 * `Organiser` class removed.
 
 ### Notes
 This release replaces the old `core` and `extensions` structure.  
 If you are upgrading from ≤1.0.4, update imports and Gradle dependencies.
 
+---
 
 ## v1.0.4 – 19/10/2025
 
@@ -122,6 +126,8 @@ If you are upgrading from ≤1.0.4, update imports and Gradle dependencies.
 * Pass file directly in `FileEmbeddingStore` constructor instead of dir and filename
 * Update batch processor to ensure progress is tracked correctly regardless of errors
 * Update batch processor to call onComplete even if items is empty
+
+---
 
 ## v1.0.3 – 14/10/2025
 
@@ -132,6 +138,8 @@ If you are upgrading from ≤1.0.4, update imports and Gradle dependencies.
   * `get(ids: List<Long>)` – fetch multiple embeddings by ID.
   * `get(id: Long)` – fetch a single embedding by ID.
 * Tests added to verify correct behavior and boundary handling for the new query overload.
+
+---
 
 ## v1.0.2 – 05/10/2025
 
@@ -144,6 +152,8 @@ If you are upgrading from ≤1.0.4, update imports and Gradle dependencies.
 ### Fixed
 * Fixed typo in getScaledDimension function
 
+---
+
 ## v1.0.1 – 26/09/2025
 
 ### Changed
@@ -151,6 +161,8 @@ If you are upgrading from ≤1.0.4, update imports and Gradle dependencies.
 * Use linked hashmap for cache instead of list
 * Pass store to Indexers
 * Update tests
+
+---
 
 ## v1.0.0 – 23/09/2025
 * Initial release
