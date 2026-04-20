@@ -18,4 +18,10 @@ sealed class SmartScanException(message: String, cause: Throwable? = null) : Exc
 
     class ModelDownloadFailed(message: String = "Failed to download model") :
         SmartScanException(message)
+
+    class InvalidModelType(message: String = "Invalid model type") :
+        SmartScanException(message)
+
+    class ModelNotDownloaded(message: String = "Model not downloaded") :
+        SmartScanException(message)
 }
