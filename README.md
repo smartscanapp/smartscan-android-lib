@@ -54,13 +54,14 @@ dependencyResolutionManagement {
 ### **1. Install Core Module**
 
 ```gradle
-implementation("com.github.dev-diaries41.smartscan-sdk:smartscan-core:${smartscanVersion}")
+implementation 'com.github.smartscanapp.smartscan-android-lib:smartscan-core:${smartscanVersion}'
+
 ```
 
 ### **2. Install ML Module (Optional)**
 
 ```gradle
-implementation("com.github.dev-diaries41.smartscan-sdk:smartscan-ml:${smartscanVersion}")
+implementation 'com.github.smartscanapp.smartscan-android-lib:smartscan-ml:${smartscanVersion}'
 ```
 
 > `ml` depends on `core`, so including it is enough if you need both.
