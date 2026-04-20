@@ -1,8 +1,10 @@
 package com.fpf.smartscansdk.core.detector
 
-interface DetectorProvider<T> {
+import android.graphics.Bitmap
+
+interface DetectorProvider {
     fun closeSession() = Unit
     suspend fun initialize()
     fun isInitialized(): Boolean
-    suspend fun detect(data: T): Pair<List<Float>, List<FloatArray>>
+    suspend fun detect(input: Bitmap): Pair<List<Float>, List<FloatArray>>
 }

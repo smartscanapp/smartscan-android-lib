@@ -22,7 +22,7 @@ class FaceDetector(
     modelSource: ModelAssetSource,
     private val confThreshold: Float = 0.5f,
     private val nmsThreshold: Float = 0.3f
-) : DetectorProvider<Bitmap> {
+) : DetectorProvider {
 
     companion object {
         private const val TAG = "FaceDetector"
