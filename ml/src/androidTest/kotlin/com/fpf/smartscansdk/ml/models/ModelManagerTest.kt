@@ -89,4 +89,34 @@ class ModelManagerAndroidTest {
             assertTrue(listedModels.contains(modelName))
         }
     }
+
+    @Test
+    fun testDownloadModelInternalAndLoadProvidersForAllModels() = runTest {
+        ModelRegistry.forEach { (modelName, modelInfo) ->
+
+            val result = ModelManager.downloadModelInternal(context, modelInfo)
+
+            if (result.isFailure) {
+                val exception = result.exceptionOrNull()
+                fail("Download failed for $modelName: ${exception?.message}")
+            }
+
+            assertTrue(ModelManager.modelExists(context, modelName))
+
+            when (modelInfo.type) {
+                ModelType.TEXT_ENCODER -> {
+                    val provider = ModelManager.getTextEmbedder(context, modelName)
+                    assertNotNull(provider)
+                }
+                ModelType.IMAGE_ENCODER -> {
+                    val provider = ModelManager.getImageEmbedder(context, modelName)
+                    assertNotNull(provider)
+                }
+                ModelType.OBJECT_DETECTOR -> {
+                    val provider = ModelManager.getObjectDetector(context, modelName)
+                    assertNotNull(provider)
+                }
+            }
+        }
+    }
 }
