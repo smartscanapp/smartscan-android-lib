@@ -145,6 +145,7 @@ Internal state:
 
 ## HnswIndex
 
+Uses hnswlib ([https://github.com/nmslib/hnswlib](https://github.com/nmslib/hnswlib))
 JNI-backed approximate nearest neighbor index.
 
 Constructor:
