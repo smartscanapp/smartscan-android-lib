@@ -9,6 +9,7 @@ All providers implement `EmbeddingProvider<T>`. Both bundled and downloaded mode
 ```kotlin
 val textEmbedder = ModelManager.getTextEmbedder(application, ModelName.ALL_MINILM_L6_V2)
 val imageEmbedder = ModelManager.getImageEmbedder(application, ModelName.DINOV2_SMALL)
+val objectDetector = ModelManager.getObjectDetector(application, ModelName.ULTRA_LIGHT_FACE_DETECTOR)
 ```
 
 ### Bundled model
@@ -17,7 +18,7 @@ val imageEmbedder = ModelManager.getImageEmbedder(application, ModelName.DINOV2_
 val textEmbedder = ClipTextEmbedder(application, ModelAssetSource.Resource(R.raw.clip_text_encoder_quant), vocabSource = ModelAssetSource.Resource(R.raw.vocab), mergesSource = ModelAssetSource.Resource(R.raw.merges))
 val imageEmbedder = ClipImageEmbedder(application, ModelAssetSource.Resource(R.raw.clip_image_encoder_quant))
 ```
-``
+
 ## Supported image embedders
 
 * dinov2_small
