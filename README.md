@@ -70,9 +70,11 @@ implementation("com.github.dev-diaries41.smartscan-sdk:smartscan-ml:1.1.0")
 
 ## Quick Start
 
-Below is information on how to get started with embedding, indexing, and searching.
+Below is information on how to get started with embedding, clustering, indexing, and searching.
 
 ### Embeddings
+
+You can use bundled or downloaded models, see [docs](docs/ml/providers.md) for more details.
 
 #### Text Embeddings
 
@@ -83,8 +85,11 @@ Generate vector embeddings from text strings or batches of text for tasks such a
 ```kotlin
 //import com.fpf.smartscansdk.ml.models.providers.embeddings.clip.ClipTextEmbedder
 
-// Requires model to be in raw resources at e.g res/raw/text_encoder_quant_int8.onnx 
-val textEmbedder = ClipTextEmbedder(context, ResourceId(R.raw.text_encoder_quant_int8))
+// downloaded model
+val textEmbedder = ModelManager.getTextEmbedder(application, ModelName.ALL_MINILM_L6_V2)
+
+// bundled model
+val textEmbedder = ClipTextEmbedder(application, ModelAssetSource.Resource(R.raw.clip_text_encoder_quant), vocabSource = ModelAssetSource.Resource(R.raw.vocab), mergesSource = ModelAssetSource.Resource(R.raw.merges))
 val text = "Hello smartscan"
 val embedding = textEmbedder.embed(text)
 
@@ -92,9 +97,11 @@ val embedding = textEmbedder.embed(text)
 
 **Batch Example:**
 
+Specifically designed for large batches
+
 ```kotlin
 val texts = listOf("first sentence", "second sentence")
-val embeddings = textEmbedder.embedBatch(texts)
+val embeddings = embedBatch(context, textEmbedder, texts)
 ```
 
 ---
@@ -108,8 +115,11 @@ Generate vector embeddings from images (as `Bitmap`) for visual search or simila
 ```kotlin
 //import com.fpf.smartscansdk.ml.models.providers.embeddings.clip.ClipImageEmbedder
 
-// Requires model to be in raw resources at e.g res/raw/image_encoder_quant_int8.onnx 
-val imageEmbedder = ClipImageEmbedder(context, ResourceId(R.raw.image_encoder_quant_int8))
+// downloaded model
+val imageEmbedder = ModelManager.getImageEmbedder(application, ModelName.DINOV2_SMALL)
+
+// bundled model
+val imageEmbedder = ClipImageEmbedder(application, ModelAssetSource.Resource(R.raw.clip_image_encoder_quant))
 
 val embedding = imageEmbedder.embed(bitmap)
 
@@ -119,23 +129,23 @@ val embedding = imageEmbedder.embed(bitmap)
 **Batch Example:**
 
 ```kotlin
-val images: List<Bitmap> = ...
-val embeddings = imageEmbedder.embedBatch(images)
+val images = listOf<Bitmap>()
+val embeddings = embedBatch(context, imageEmbedder, images)
 ```
 
 ### Indexing
 
-To get started with indexing media quickly, you can use the provided `ImageIndex` and `VideoIndexer` classes as shown below. You can optionally create your own indexers (including for text related data) by implementing the `BatchProcessor` interface. See docs for more details.
+To get started with indexing media quickly, you can use the provided `ImageIndex` and `VideoIndexer` classes as shown below. You can optionally create your own indexers (including for text related data) by extending the `BatchProcessor`. See [docs](docs/core/processors.md) for more details.
 
 #### Image Indexing
 
 Index images to enable similarity search. The index is saved as a binary file and managed with a FileEmbeddingStore.
-> **Important**: During indexing the MediaStore Id is used to as the id in the `Embedding` which is stored. This can later be used for retrieval.
+> **Important**: During indexing the MediaStore Id is used to as the id in the `StoredEmbedding` which is stored. This can later be used for retrieval.
 
 
 ```kotlin
 val imageEmbedder = ClipImageEmbedder(context, ResourceId(R.raw.image_encoder_quant_int8))
-val imageStore = FileEmbeddingStore(File(context.filesDir, "image_index.bin"), imageEmbedder.embeddingDim, useCache = false) // cache not needed for indexing
+val imageStore = FileEmbeddingStore(File(context.filesDir, "image_index.bin"), imageEmbedder.embeddingDim) 
 val imageIndexer = ImageIndexer(imageEmbedder, context=context, listener = null, store = imageStore) //optionally pass a listener to handle events
 val ids = getImageIds() // placeholder function to get MediaStore image ids
 imageIndexer.run(ids)
@@ -144,10 +154,11 @@ imageIndexer.run(ids)
 #### Video Indexing
 
 Index videos to enable similarity search. The index is saved as a binary file and managed with a FileEmbeddingStore.
+> **Important**: During indexing the MediaStore Id is used to as the id in the `StoredEmbedding` which is stored. This can later be used for retrieval.
 
 ```kotlin
 val imageEmbedder = ClipImageEmbedder(context, ResourceId(R.raw.image_encoder_quant_int8))
-val videoStore = FileEmbeddingStore(File(context.filesDir,  "video_index.bin"), imageEmbedder.embeddingDim, useCache = false )
+val videoStore = FileEmbeddingStore(File(context.filesDir,  "video_index.bin"), imageEmbedder.embeddingDim )
 val videoIndexer = VideoIndexer(imageEmbedder, context=context, listener = null, store = videoStore, width = ClipConfig.IMAGE_SIZE_X, height = ClipConfig.IMAGE_SIZE_Y)
 val ids = getVideoIds() // placeholder function to get MediaStore video ids
 videoIndexer.run(ids)
@@ -160,30 +171,46 @@ Below shows how to search using both text queries and an image. The returns resu
 #### Text-to-Image Search
 
  ```kotlin
-val imageStore = FileEmbeddingStore(File(context.filesDir, "image_index.bin"), imageEmbedder.embeddingDim, useCache = false) // cache not needed for indexing
-val imageRetriever = FileEmbeddingRetriever(imageStore)
-val textEmbedder = ClipTextEmbedder(context, ResourceId(R.raw.text_encoder_quant_int8))
+val imageStore = FileEmbeddingStore(File(context.filesDir, "image_index.bin"), imageEmbedder.embeddingDim) 
 val query = "my search query"
 val embedding = textEmbedder.embed(query)
 val topK = 20
 val similarityThreshold = 0.2f
-val results = retriever.query(embedding, topK, similarityThreshold)
+val results = imageStore.query(embedding, topK, similarityThreshold) // returns image ids, optionally pass filter ids
 
 ```
 
 #### Reverse Image Search
 
 ```kotlin
-val imageStore = FileEmbeddingStore(File(context.filesDir, "image_index.bin"), imageEmbedder.embeddingDim, useCache = false) // cache not needed for indexing
-val imageRetriever = FileEmbeddingRetriever(imageStore)
-val imageEmbedder = ClipImageEmbedder(context, ResourceId(R.raw.image_encoder_quant_int8))
+val imageStore = FileEmbeddingStore(File(context.filesDir, "image_index.bin"), imageEmbedder.embeddingDim) 
 val embedding = imageEmbedder.embed(bitmap)
 val topK = 20
 val similarityThreshold = 0.2f
-val results = retriever.query(embedding, topK, similarityThreshold)
-
+val results = imageStore.query(embedding, topK, similarityThreshold)
 ```
 
+#### ANN Search (HNSW Index)
+
+```kotlin
+val annIndex = HNSWIndex(dim=512)
+val query = "my search query"
+val embedding = textEmbedder.embed(query)
+val topK = 5
+val results = annIndex.query(embedding, topK) // returns nearest neighbour indices must map to item id
+```
+
+### Clustering
+
+Incremental clustering groups embeddings as they are added see [docs](docs/core/clustering.md) for more details.
+
+```kotlin
+val imageStore = FileEmbeddingStore(File(context.filesDir, "image_index.bin"), imageEmbedder.embeddingDim) 
+val itemEmbeds = store.get()
+val existingClusters: Map<Long, Cluster> = emptyMap() // optionally pass existing clusters
+val clusterer = IncrementalClusterer(existingClusters = existingClusters, defaultThreshold = 0.4f)
+val result = clusterer.cluster(itemEmbeds)
+```
 ---
 
 ## Design Choices
