@@ -1,18 +1,12 @@
-# ModelManager
+## ModelManager
 
----
-
-## Overview
-
-Handles lifecycle of ML models on device: downloading, importing, validating, listing, and deleting. Supports single-file models and zip-based multi-file models with dependency validation.
+Handles lifecycle of ML models on device: download, import, validation, listing, deletion, and model instantiation.
 
 ---
 
 ## ROOT_DIR
 
-Base directory for all stored models.
-
-* `"models"` inside `context.filesDir`
+`filesDir/models/`
 
 ---
 
@@ -28,26 +22,10 @@ suspend fun downloadModelInternal(
 
 Downloads a model into internal storage.
 
-### Behavior
-
-* Resolves target path via `getModelFile`
-* Detects zip models via `resourceFiles`
-
-### Zip flow
-
-* Downloads to temporary `.zip`
-* Extracts into target directory
-* Validates required files exist
-* Deletes extracted files on validation failure
-
-### Single-file flow
-
-* Direct download into target file
-
-### Notes
-
-* Progress reported 0–100 on main thread
-* Uses temp file then atomic rename
+* Streams file from network to local storage
+* Reports progress (0–100) if available
+* Uses temporary file then atomic rename
+* Returns final model file
 
 ---
 
@@ -57,7 +35,7 @@ Downloads a model into internal storage.
 fun downloadModelExternal(context: Context, url: String)
 ```
 
-Opens external browser for model URL.
+Opens external browser for model download URL.
 
 ---
 
@@ -67,20 +45,10 @@ Opens external browser for model URL.
 suspend fun importModel(context: Context, modelInfo: ModelInfo, uri: Uri)
 ```
 
-Imports model from external URI.
+Imports a model from a URI into internal storage.
 
-### Behavior
-
-* Zip models:
-
-  * Copy URI → temp zip
-  * Extract into model directory
-  * Validate required files
-  * Delete temp file
-
-* Single-file models:
-
-  * Direct copy to target location
+* Copies URI content into model directory
+* Replaces existing model if present
 
 ---
 
@@ -90,10 +58,7 @@ Imports model from external URI.
 fun modelExists(context: Context, model: ModelName): Boolean
 ```
 
-Checks if model exists locally.
-
-* File model: checks file existence
-* Directory model: checks all required resources exist
+Checks whether a model is fully available locally.
 
 ---
 
@@ -103,10 +68,7 @@ Checks if model exists locally.
 fun deleteModel(context: Context, modelInfo: ModelInfo): Boolean
 ```
 
-Deletes model from storage.
-
-* Files: direct delete
-* Directories: recursive delete
+Deletes a model from internal storage.
 
 ---
 
@@ -116,10 +78,7 @@ Deletes model from storage.
 fun listModels(context: Context, type: ModelType? = null): List<ModelName>
 ```
 
-Returns installed models.
-
-* Filters registry by existence
-* Optional filtering by model type
+Returns installed models, optionally filtered by type.
 
 ---
 
@@ -137,41 +96,70 @@ filesDir/models/<modelInfo.path>
 
 ---
 
-## unzipFiles
+## downloadFileInternal
 
-Extracts zip archive into target directory.
+Core network download utility.
 
-* Skips directories
-* Writes files directly
-* Returns extracted file list
+* Streams HTTP response to local file
+* Writes to temp file first
+* Reports progress if content length is known
+* Replaces final file atomically
 
 ---
 
-## downloadFileInternal
+## Model Providers
 
-Core HTTP download implementation.
+### Text Embedders
 
-### Behavior
+```kotlin
+fun getTextEmbedder(context: Context, modelName: ModelName): TextEmbeddingProvider
+```
 
-* Streams file via `HttpURLConnection`
-* Writes to `.tmp` file
-* Tracks progress if content length is available
-* Reports progress only on increase
-* Executes callbacks on main thread
+Returns initialized text embedding model.
 
-### Safety
+Supported models:
 
-* Uses temp file during download
-* Deletes temp file on failure
-* Replaces final file atomically via rename
+* `ALL_MINILM_L6_V2`
+* `CLIP_VIT_B_32_TEXT`
+
+Throws `ModelNotDownloaded` if missing.
+
+---
+
+### Image Embedders
+
+```kotlin
+fun getImageEmbedder(context: Context, modelName: ModelName): ImageEmbeddingProvider
+```
+
+Supported models:
+
+* `DINOV2_SMALL`
+* `CLIP_VIT_B_32_IMAGE`
+* `INCEPTION_RESNET_V1`
+
+Throws `ModelNotDownloaded` if missing.
+
+---
+
+### Object Detectors
+
+```kotlin
+fun getObjectDetector(context: Context, modelName: ModelName): DetectorProvider
+```
+
+Supported models:
+
+* `ULTRA_LIGHT_FACE_DETECTOR`
+
+Throws `ModelNotDownloaded` if missing.
 
 ---
 
 ## Design Notes
 
-* Supports both single-file and multi-file model packages
-* Validates zip contents against expected dependencies
-* Uses atomic file replacement to prevent partial model states
-* Designed for offline-first model management
-* Separates download, import, and storage concerns
-* Optimized for Android sandboxed file system constraints
+* Internal storage only (`filesDir/models`)
+* Atomic file replacement for safety
+* Progress-aware streaming downloads
+* Model validation enforced before instantiation
+* Strict model-type matching for provider factories
