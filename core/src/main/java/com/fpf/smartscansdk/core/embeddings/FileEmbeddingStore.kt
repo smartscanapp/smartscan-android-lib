@@ -236,8 +236,18 @@ class FileEmbeddingStore(
         idToFileOffsetIndex.clear()
     }
 
-    override suspend fun query(embedding: FloatArray, topK: Int, threshold: Float, ids: Set<Long>): List<Long> {
-        val storedEmbeddings = if (ids.isNotEmpty()) get().filter { it.id in ids } else get()
+    override suspend fun query(embedding: FloatArray, topK: Int, threshold: Float, ids: Set<Long>, startDate: Long?, endDate: Long?): List<Long> {
+        val storedEmbeddings = get().asSequence()
+            .let { seq ->
+                if (ids.isNotEmpty()) seq.filter { it.id in ids } else seq
+            }
+            .let { seq ->
+                if (startDate != null) seq.filter { it.date >= startDate } else seq
+            }
+            .let { seq ->
+                if (endDate != null) seq.filter { it.date <= endDate } else seq
+            }
+            .toList()
 
         if (storedEmbeddings.isEmpty()) return emptyList()
 

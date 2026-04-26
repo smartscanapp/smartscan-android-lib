@@ -13,6 +13,8 @@ interface EmbeddingStore {
         embedding: FloatArray,
         topK: Int,
         threshold: Float,
-        ids: Set<Long> = emptySet()
+        ids: Set<Long> = emptySet(),
+        startDate: Long? = null,
+        endDate: Long? = null
     ): List<Long>
 }
