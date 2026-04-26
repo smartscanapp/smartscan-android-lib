@@ -23,29 +23,61 @@ class ImageIndexer(
     private val store: EmbeddingStore,
     private val maxImageSize: Int = 225,
     context: Context,
-    listener: ProcessorListener<Long, StoredEmbedding>? = null,
+    listener: ProcessorListener<Long, Pair<Long, FloatArray>>? = null,
     memoryOptions: MemoryOptions = MemoryOptions(),
     batchSize: Int = 10,
-    ): BatchProcessor<Long, StoredEmbedding>(context, listener, memoryOptions, batchSize){
+    ): BatchProcessor<Long, Pair<Long, FloatArray>>(context, listener, memoryOptions, batchSize){
 
 
-    override suspend fun onBatchComplete(context: Context, batch: List<StoredEmbedding>) {
-        store.add(batch)
+    override suspend fun onBatchComplete(context: Context, batch: List<Pair<Long, FloatArray>>) {
+        val imageIdToDateMap = getImageToDateMap(context, batch.map { it.first })
+        val embedsToStore = batch.map{
+            val date = imageIdToDateMap[it.first]?: System.currentTimeMillis()
+            StoredEmbedding(it.first, date, it.second)
+        }
+        store.add(embedsToStore)
         listener?.onBatchComplete(context, batch)
     }
 
-    override suspend fun onProcess(context: Context, item: Long): StoredEmbedding {
-        val contentUri = ContentUris.withAppendedId(
-            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, item
-        )
+    override suspend fun onProcess(context: Context, item: Long): Pair<Long, FloatArray> {
+        val contentUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, item)
         val bitmap = getBitmapFromUri(context, contentUri, maxImageSize)
-        val embedding = withContext(NonCancellable) {
-            embedder.embed(bitmap)
-        }
-        return StoredEmbedding(
-            id = item,
-            date = System.currentTimeMillis(),
-            embedding = embedding
+        val embedding = withContext(NonCancellable) { embedder.embed(bitmap) }
+        return Pair(item, embedding)
+    }
+
+    private fun getImageToDateMap(context: Context, ids: List<Long>): Map<Long, Long> {
+        val result = mutableMapOf<Long, Long>()
+        val uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+        val projection = arrayOf(
+            MediaStore.Images.Media._ID,
+            MediaStore.Images.Media.DATE_ADDED
         )
+
+        val chunkSize = 500
+
+        ids.chunked(chunkSize).forEach { chunk ->
+
+            val selection = "${MediaStore.Images.Media._ID} IN (${
+                chunk.joinToString(",")
+            })"
+
+            context.applicationContext.contentResolver.query(
+                uri,
+                projection,
+                selection,
+                null,
+                null
+            )?.use { cursor ->
+
+                val idIdx = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
+                val dateIdx = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_ADDED)
+
+                while (cursor.moveToNext()) {
+                    result[cursor.getLong(idIdx)] = cursor.getLong(dateIdx)
+                }
+            }
+        }
+        return result
     }
 }

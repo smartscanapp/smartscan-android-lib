@@ -25,30 +25,64 @@ class VideoIndexer(
     private val width: Int,
     private val height: Int,
     context: Context,
-    listener: ProcessorListener<Long, StoredEmbedding>? = null,
+    listener: ProcessorListener<Long, Pair<Long, FloatArray>>? = null,
     batchSize: Int = 10,
     memoryOptions: MemoryOptions = MemoryOptions(),
     private val store: EmbeddingStore,
-    ): BatchProcessor<Long, StoredEmbedding>(context, listener, memoryOptions, batchSize){
+    ): BatchProcessor<Long, Pair<Long, FloatArray>>(context, listener, memoryOptions, batchSize){
 
-    override suspend fun onBatchComplete(context: Context, batch: List<StoredEmbedding>) {
-        store.add(batch)
+    override suspend fun onBatchComplete(context: Context, batch: List<Pair<Long, FloatArray>>) {
+        val videoIdToDateMap = getVideoToDateMap(context, batch.map { it.first })
+        val embedsToStore = batch.map{
+            val date = videoIdToDateMap[it.first]?: System.currentTimeMillis()
+            StoredEmbedding(it.first, date, it.second)
+        }
+        store.add(embedsToStore)
         listener?.onBatchComplete(context, batch)
     }
 
-    override suspend fun onProcess(context: Context, item: Long): StoredEmbedding {
-        val contentUri = ContentUris.withAppendedId(
-            MediaStore.Video.Media.EXTERNAL_CONTENT_URI, item
-        )
+    override suspend fun onProcess(context: Context, item: Long): Pair<Long, FloatArray> {
+        val contentUri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, item)
         val frameBitmaps = extractFramesFromVideo(context, contentUri, width = width, height = height, frameCount = frameCount)?: throw IllegalStateException("Invalid frames")
         val rawEmbeddings = embedBatch(context, embedder, frameBitmaps)
         val embedding: FloatArray = generatePrototypeEmbedding(rawEmbeddings)
+        return Pair(item, embedding)
+    }
 
-        return StoredEmbedding(
-            id = item,
-            date = System.currentTimeMillis(),
-            embedding = embedding
+    private fun getVideoToDateMap(context: Context, ids: List<Long>): Map<Long, Long> {
+        val result = mutableMapOf<Long, Long>()
+        val uri = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        val projection = arrayOf(
+            MediaStore.Video.Media._ID,
+            MediaStore.Video.Media.DATE_ADDED
         )
+
+        val chunkSize = 500
+
+        ids.chunked(chunkSize).forEach { chunk ->
+
+            val selection = "${MediaStore.Video.Media._ID} IN (${
+                chunk.joinToString(",")
+            })"
+
+            context.applicationContext.contentResolver.query(
+                uri,
+                projection,
+                selection,
+                null,
+                null
+            )?.use { cursor ->
+
+                val idIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
+                val dateIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_ADDED)
+
+                while (cursor.moveToNext()) {
+                    result[cursor.getLong(idIdx)] = cursor.getLong(dateIdx)
+                }
+            }
+        }
+
+        return result
     }
 
 }
