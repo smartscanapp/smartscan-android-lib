@@ -167,49 +167,58 @@ class FileEmbeddingStore(
                 headerBuf.putInt(newCount)
                 headerBuf.flip()
                 channel.position(0)
-                while (headerBuf.hasRemaining()) {
-                    channel.write(headerBuf)
-                }
+                channel.write(headerBuf)
 
                 // Move to the end (append mode) or start of data section if new file
-                var nextOffset = headerSize.toLong()
-                if (fileExistsAndHasContent) {
-                    nextOffset = channel.size()
+                var nextOffset = if (fileExistsAndHasContent) {
+                    channel.size()
                 } else {
-                    channel.position(headerSize.toLong())
+                    headerSize.toLong()
                 }
 
-                for (embedding in filteredNewEmbeddings) {
-                    if (embedding.embedding.size != embeddingDimension) {
-                        throw SmartScanException.InvalidEmbeddingDimension(
-                            "Embedding dimension mismatch. Expected $embeddingDimension, got ${embedding.embedding.size}"
-                        )
+                val batchSize = 1000
+                var index = 0
+
+                while (index < filteredNewEmbeddings.size) {
+                    val end = minOf(index + batchSize, filteredNewEmbeddings.size)
+                    val batch = filteredNewEmbeddings.subList(index, end)
+
+                    val batchBuffer = ByteBuffer.allocate(batch.size * recordSize)
+                        .order(ByteOrder.LITTLE_ENDIAN)
+
+                    for (embedding in batch) {
+                        if (embedding.embedding.size != embeddingDimension) {
+                            throw SmartScanException.InvalidEmbeddingDimension(
+                                "Embedding dimension mismatch. Expected $embeddingDimension, got ${embedding.embedding.size}"
+                            )
+                        }
+
+                        batchBuffer.putLong(embedding.id)
+                        batchBuffer.putLong(embedding.date)
+                        for (f in embedding.embedding) batchBuffer.putFloat(f)
+
+                        // update in-memory file offset index for the newly appended entry and cache
+                        idToFileOffsetIndex[embedding.id] = nextOffset
+
+                        // Only add items to cache if it's not empty e.g after get() call, to keep it synchronized.
+                        // This prevents edge cases that could result in partial cache overwriting on-disk data
+                        // It also prevents unnecessarily keeping embeddings in memory
+                        if (cache.isNotEmpty()) {
+                            cache[embedding.id] = embedding
+                        }
+
+                        nextOffset += recordSize.toLong()
                     }
 
-                    val buf = ByteBuffer.allocate(recordSize).order(ByteOrder.LITTLE_ENDIAN)
-                    buf.putLong(embedding.id)
-                    buf.putLong(embedding.date)
-                    for (f in embedding.embedding) buf.putFloat(f)
-                    buf.flip()
+                    batchBuffer.flip()
+                    channel.write(batchBuffer)
 
-                    channel.position(nextOffset)
-                    while (buf.hasRemaining()) {
-                        channel.write(buf)
-                    }
-
-                    // update in-memory file offset index for the newly appended entry and cache
-                    idToFileOffsetIndex[embedding.id] = nextOffset
-
-                    // Only add items to cache if it's not empty e.g after get() call, to keep it synchronized.
-                    // This prevents edge cases that could result in partial cache overwriting on-disk data
-                    // It also prevents unnecessarily keeping embeddings in memory
-                    if (cache.isNotEmpty()) {
-                        cache[embedding.id] = embedding
-                    }
-                    nextOffset += recordSize.toLong()
+                    index = end
                 }
+
                 channel.force(false)
             }
+
             filteredNewEmbeddings.size
         }
     }
