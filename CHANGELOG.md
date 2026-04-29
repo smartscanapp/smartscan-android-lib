@@ -7,6 +7,8 @@
 * Updated indexers to sync dates with MediaStore
 * Improved efficiency of large batch handling in add method in FileEmbeddingStore
 
+___
+
 ## v2.0.0 - 19/04/2026
 
 ### Added
