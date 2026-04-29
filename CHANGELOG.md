@@ -1,3 +1,12 @@
+## v2.0.1 - 29/04/2026
+
+### Added 
+* Added date filtering for queries
+
+## Changed 
+* Updated indexers to sync dates with MediaStore
+* Improved efficiency of large batch handling in add method in FileEmbeddingStore
+
 ## v2.0.0 - 19/04/2026
 
 ### Added
