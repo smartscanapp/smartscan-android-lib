@@ -142,7 +142,7 @@ class FileEmbeddingStore(
         withContext(Dispatchers.IO) {
             if (embeddings.isEmpty()) return@withContext 0
 
-            if (idToFileOffsetIndex.isEmpty() && file.exists()) {
+            if (idToFileOffsetIndex.isEmpty()) {
                 load()
             }
 
