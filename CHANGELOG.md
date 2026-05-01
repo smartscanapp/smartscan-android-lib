@@ -1,4 +1,4 @@
-## v2.0.1 - 29/04/2026
+## v2.0.1 - 01/05/2026
 
 ### Added 
 * Added date filtering for queries
