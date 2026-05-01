@@ -142,12 +142,20 @@ class FileEmbeddingStore(
         withContext(Dispatchers.IO) {
             if (embeddings.isEmpty()) return@withContext 0
 
-            if (idToFileOffsetIndex.isEmpty() && file.exists()) {
+            if (idToFileOffsetIndex.isEmpty()) {
                 load()
             }
 
             val filteredNewEmbeddings = embeddings.filterNot { it.id in idToFileOffsetIndex }
             if (filteredNewEmbeddings.isEmpty()) return@withContext 0
+
+            for (embedding in filteredNewEmbeddings) {
+                if (embedding.embedding.size != embeddingDimension) {
+                    throw SmartScanException.InvalidEmbeddingDimension(
+                        "Embedding dimension mismatch. Expected $embeddingDimension, got ${embedding.embedding.size}"
+                    )
+                }
+            }
 
             RandomAccessFile(file, "rw").use { raf ->
                 val channel = raf.channel
@@ -162,6 +170,44 @@ class FileEmbeddingStore(
 
                 val newCount = existingCount + filteredNewEmbeddings.size
 
+                // Move to the end (append mode) or start of data section if new file
+                val nextOffset = if (fileExistsAndHasContent) {
+                    channel.size()
+                } else {
+                    headerSize.toLong()
+                }
+
+                channel.position(nextOffset)
+
+                val targetChunkBytes = 4 * 1024 * 1024
+                val chunkCapacity = maxOf(
+                    recordSize,
+                    (targetChunkBytes / recordSize).coerceAtLeast(1) * recordSize
+                )
+                val writeBuffer = ByteBuffer.allocateDirect(chunkCapacity).order(ByteOrder.LITTLE_ENDIAN)
+
+                fun flushBuffer() {
+                    writeBuffer.flip()
+                    while (writeBuffer.hasRemaining()) {
+                        channel.write(writeBuffer)
+                    }
+                    writeBuffer.clear()
+                }
+
+                for (embedding in filteredNewEmbeddings) {
+                    if (writeBuffer.remaining() < recordSize) {
+                        flushBuffer()
+                    }
+
+                    writeBuffer.putLong(embedding.id)
+                    writeBuffer.putLong(embedding.date)
+                    for (f in embedding.embedding) writeBuffer.putFloat(f)
+                }
+
+                if (writeBuffer.position() > 0) {
+                    flushBuffer()
+                }
+
                 // Write updated count back as little-endian
                 val headerBuf = ByteBuffer.allocate(headerSize).order(ByteOrder.LITTLE_ENDIAN)
                 headerBuf.putInt(newCount)
@@ -171,45 +217,23 @@ class FileEmbeddingStore(
                     channel.write(headerBuf)
                 }
 
-                // Move to the end (append mode) or start of data section if new file
-                var nextOffset = headerSize.toLong()
-                if (fileExistsAndHasContent) {
-                    nextOffset = channel.size()
-                } else {
-                    channel.position(headerSize.toLong())
+                channel.force(false)
+
+                // update in-memory file offset index for the newly appended entry and cache
+                filteredNewEmbeddings.forEachIndexed { index, embedding ->
+                    idToFileOffsetIndex[embedding.id] = nextOffset + (index.toLong() * recordSize)
                 }
 
-                for (embedding in filteredNewEmbeddings) {
-                    if (embedding.embedding.size != embeddingDimension) {
-                        throw SmartScanException.InvalidEmbeddingDimension(
-                            "Embedding dimension mismatch. Expected $embeddingDimension, got ${embedding.embedding.size}"
-                        )
-                    }
-
-                    val buf = ByteBuffer.allocate(recordSize).order(ByteOrder.LITTLE_ENDIAN)
-                    buf.putLong(embedding.id)
-                    buf.putLong(embedding.date)
-                    for (f in embedding.embedding) buf.putFloat(f)
-                    buf.flip()
-
-                    channel.position(nextOffset)
-                    while (buf.hasRemaining()) {
-                        channel.write(buf)
-                    }
-
-                    // update in-memory file offset index for the newly appended entry and cache
-                    idToFileOffsetIndex[embedding.id] = nextOffset
-
-                    // Only add items to cache if it's not empty e.g after get() call, to keep it synchronized.
-                    // This prevents edge cases that could result in partial cache overwriting on-disk data
-                    // It also prevents unnecessarily keeping embeddings in memory
-                    if (cache.isNotEmpty()) {
+                // Only add items to cache if it's not empty e.g after get() call, to keep it synchronized.
+                // This prevents edge cases that could result in partial cache overwriting on-disk data
+                // It also prevents unnecessarily keeping embeddings in memory
+                if (cache.isNotEmpty()) {
+                    for (embedding in filteredNewEmbeddings) {
                         cache[embedding.id] = embedding
                     }
-                    nextOffset += recordSize.toLong()
                 }
-                channel.force(false)
             }
+
             filteredNewEmbeddings.size
         }
     }
@@ -236,8 +260,18 @@ class FileEmbeddingStore(
         idToFileOffsetIndex.clear()
     }
 
-    override suspend fun query(embedding: FloatArray, topK: Int, threshold: Float, ids: Set<Long>): List<Long> {
-        val storedEmbeddings = if (ids.isNotEmpty()) get().filter { it.id in ids } else get()
+    override suspend fun query(embedding: FloatArray, topK: Int, threshold: Float, ids: Set<Long>, startDate: Long?, endDate: Long?): List<Long> {
+        val storedEmbeddings = get().asSequence()
+            .let { seq ->
+                if (ids.isNotEmpty()) seq.filter { it.id in ids } else seq
+            }
+            .let { seq ->
+                if (startDate != null) seq.filter { it.date >= startDate } else seq
+            }
+            .let { seq ->
+                if (endDate != null) seq.filter { it.date <= endDate } else seq
+            }
+            .toList()
 
         if (storedEmbeddings.isEmpty()) return emptyList()
 
