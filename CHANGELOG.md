@@ -1,3 +1,10 @@
+## v2.0.2 - 05/06/2026
+
+### Changed 
+* EmbeddingStore query method now accepts `includeSims` flag and returns `QueryResult`
+
+___
+
 ## v2.0.1 - 01/05/2026
 
 ### Added 
