@@ -15,6 +15,7 @@ interface EmbeddingStore {
         threshold: Float,
         ids: Set<Long> = emptySet(),
         startDate: Long? = null,
-        endDate: Long? = null
-    ): List<Long>
+        endDate: Long? = null,
+        includeSims: Boolean = false
+    ): QueryResult
 }
