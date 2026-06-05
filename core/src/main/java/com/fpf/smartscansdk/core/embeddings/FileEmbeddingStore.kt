@@ -260,7 +260,7 @@ class FileEmbeddingStore(
         idToFileOffsetIndex.clear()
     }
 
-    override suspend fun query(embedding: FloatArray, topK: Int, threshold: Float, ids: Set<Long>, startDate: Long?, endDate: Long?): List<Long> {
+    override suspend fun query(embedding: FloatArray, topK: Int, threshold: Float, ids: Set<Long>, startDate: Long?, endDate: Long?, includeSims: Boolean): QueryResult {
         val storedEmbeddings = get().asSequence()
             .let { seq ->
                 if (ids.isNotEmpty()) seq.filter { it.id in ids } else seq
@@ -273,13 +273,19 @@ class FileEmbeddingStore(
             }
             .toList()
 
-        if (storedEmbeddings.isEmpty()) return emptyList()
+        if (storedEmbeddings.isEmpty()) return QueryResult()
 
         val similarities = getSimilarities(embedding, storedEmbeddings.map { it.embedding })
         val resultIndices = getTopN(similarities, topK, threshold)
 
-        if (resultIndices.isEmpty()) return emptyList()
-        return resultIndices.map{idx -> storedEmbeddings[idx].id }
+        return if (resultIndices.isEmpty()) {
+            QueryResult()
+        }
+        else{
+            val ids = resultIndices.map{idx -> storedEmbeddings[idx].id }
+            val sims = if(includeSims) resultIndices.map{idx -> similarities[idx] } else null
+            QueryResult(ids, sims)
+        }
     }
 
     override suspend fun update(embeddings: List<StoredEmbedding>): Int = fileMutex.withLock {
