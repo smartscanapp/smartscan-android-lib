@@ -1,3 +1,10 @@
+## v2.0.3 - 11/06/2026
+
+### Changed
+* save to temp file and replace on completion to prevent corrupting embedding store file due to partial writes
+
+___
+
 ## v2.0.2 - 05/06/2026
 
 ### Changed 
