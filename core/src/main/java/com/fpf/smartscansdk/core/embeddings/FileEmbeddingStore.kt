@@ -12,6 +12,8 @@ import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import kotlin.collections.map
 
 class FileEmbeddingStore(
@@ -34,11 +36,14 @@ class FileEmbeddingStore(
     private val headerSize = 4
 
 
+    // Save to temp file and replace on completion to prevent corrupting embedding store file due to partial writes
     override suspend fun save(): Unit = withContext(Dispatchers.IO) {
         val embeddingsList = get()
         if(embeddingsList.isEmpty()) return@withContext
 
-        FileOutputStream(file).channel.use { channel ->
+        val tempFile = File.createTempFile(file.nameWithoutExtension, ".tmp")
+
+        FileOutputStream(tempFile).channel.use { channel ->
             val header = ByteBuffer.allocate(headerSize).order(ByteOrder.LITTLE_ENDIAN)
             header.putInt(embeddingsList.size)
             header.flip()
@@ -73,6 +78,11 @@ class FileEmbeddingStore(
                 index = end
             }
         }
+        Files.move(
+            tempFile.toPath(),
+            file.toPath(),
+            StandardCopyOption.REPLACE_EXISTING
+        )
     }
 
     private suspend fun load(): LinkedHashMap<Long, StoredEmbedding> = withContext(Dispatchers.IO) {
