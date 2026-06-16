@@ -1,5 +1,6 @@
 package com.fpf.smartscansdk.ml.providers.detectors
 
+import ai.onnxruntime.OnnxTensor
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.core.graphics.scale
@@ -8,7 +9,6 @@ import com.fpf.smartscansdk.core.detector.DetectorProvider
 import com.fpf.smartscansdk.core.media.nms
 import com.fpf.smartscansdk.ml.models.ModelAssetSource
 import com.fpf.smartscansdk.ml.models.OnnxModel
-import com.fpf.smartscansdk.ml.models.TensorData
 import com.fpf.smartscansdk.ml.models.loaders.FileOnnxLoader
 import com.fpf.smartscansdk.ml.models.loaders.ResourceOnnxLoader
 import kotlinx.coroutines.Dispatchers
@@ -43,7 +43,7 @@ class FaceDetector(
 
     private var closed = false
 
-    override suspend fun detect(data: Bitmap): Pair<List<Float>, List<FloatArray>> =
+    override suspend fun detect(input: Bitmap): Pair<List<Float>, List<FloatArray>> =
         withContext(Dispatchers.Default) {
             if (!isInitialized()) throw SmartScanException.ModelNotInitialised()
 
@@ -53,24 +53,20 @@ class FaceDetector(
                 IMAGE_SIZE_Y.toLong(),
                 IMAGE_SIZE_X.toLong()
             )
-            val imgData: FloatBuffer = preProcess(data)
+            val imgData: FloatBuffer = preProcess(input)
             val inputName = model.getInputNames()!!.first()
-            val outputs = model.run(mapOf(inputName to TensorData.FloatBufferTensor(imgData, inputShape)))
-
+            val outputs = model.run(mapOf(inputName to OnnxTensor.createTensor(model.getEnv(), imgData, inputShape)))
             val outputList = outputs.values.toList()
 
-            @Suppress("UNCHECKED_CAST")
-            val scoresRawFull = outputList[0] as Array<Array<FloatArray>>
-
-            @Suppress("UNCHECKED_CAST")
-            val boxesRawFull = outputList[1] as Array<Array<FloatArray>>
+            val scoresRawFull = (outputList[0] as OnnxTensor).value as Array<Array<FloatArray>>
+            val boxesRawFull = (outputList[1] as OnnxTensor).value as Array<Array<FloatArray>>
 
             // Extract the first element (batch dimension)
             val scoresRaw = scoresRawFull[0]  // shape: [num_boxes, 2]
             val boxesRaw = boxesRawFull[0]    // shape: [num_boxes, 4]
 
-            val imgWidth = data.width
-            val imgHeight = data.height
+            val imgWidth = input.width
+            val imgHeight = input.height
 
             val boxesList = mutableListOf<FloatArray>()
             val scoresList = mutableListOf<Float>()
