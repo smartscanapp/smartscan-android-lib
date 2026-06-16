@@ -17,7 +17,7 @@ package com.fpf.smartscansdk.ml.providers.ocr.engine
 import com.fpf.smartscansdk.ml.providers.ocr.model.OCRResult
 
 
-data class OCREngineResult(
+internal data class OCREngineResult(
     val results: List<OCRResult>,
     val detectionTimeMs: Long,
     val recognitionTimeMs: Long,

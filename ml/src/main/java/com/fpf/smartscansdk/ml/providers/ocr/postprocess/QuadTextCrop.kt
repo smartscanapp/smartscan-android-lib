@@ -9,7 +9,7 @@ import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-object QuadTextCrop {
+internal object QuadTextCrop {
     private const val VERTICAL_CROP_RATIO = 1.5
 
     fun crop(src: Bitmap, box: OCRBox): Bitmap {

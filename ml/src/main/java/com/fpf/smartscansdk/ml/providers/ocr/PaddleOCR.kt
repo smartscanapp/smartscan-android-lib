@@ -1,17 +1,3 @@
-// Copyright (c) 2026 PaddlePaddle Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package com.fpf.smartscansdk.ml.providers.ocr
 
 import android.content.Context
@@ -27,15 +13,11 @@ import kotlinx.coroutines.withContext
 class PaddleOCR private constructor(
     private val engine: OCREngine,
 ) {
-    /** Time spent loading ONNX models (milliseconds). */
-    val coldLoadTimeMs: Long get() = engine.coldLoadTimeMs
-
     companion object {
 
         suspend fun create(
             context: Context,
             config: PaddleOCRConfig,
-            engineConfig: EngineConfig,
             detModelAssetSource: ModelAssetSource,
             recModelAssetSource: ModelAssetSource,
             recConfigAssetSource: ModelAssetSource,
@@ -43,15 +25,20 @@ class PaddleOCR private constructor(
             val appContext = context.applicationContext
             return withContext(Dispatchers.IO) {
                 val engine = OCREngine(
-                    appContext, config, engineConfig,
+                    appContext,
                     detModelAsset = detModelAssetSource,
                     recModelAsset = recModelAssetSource,
                     recConfigAsset = recConfigAssetSource,
+                    config = config
                 )
                 PaddleOCR(engine)
             }
         }
     }
+
+    fun isInitialized() = engine.isInitialized()
+
+    suspend fun initialize() = engine.initialize()
 
     suspend fun recognize(bitmap: Bitmap): OCRRunResult {
         if (bitmap.width == 0 || bitmap.height == 0) {
@@ -66,6 +53,8 @@ class PaddleOCR private constructor(
         }
         return recognizeResult { engine.run(imageBytes) }
     }
+
+    fun close() = engine.close()
 
     private suspend fun recognizeResult(runEngine: () -> OCREngineResult): OCRRunResult {
         return withContext(Dispatchers.IO) {
@@ -91,9 +80,4 @@ class PaddleOCR private constructor(
         }
     }
 
-    suspend fun release() {
-        withContext(Dispatchers.IO) {
-            engine.release()
-        }
-    }
 }

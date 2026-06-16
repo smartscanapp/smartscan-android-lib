@@ -9,7 +9,7 @@ import kotlin.math.hypot
 import kotlin.math.min
 import kotlin.math.sin
 
-object DBPostProcessor {
+internal object DBPostProcessor {
     private const val MIN_SIZE_BEFORE_UNCLIP = 3f
     private const val MIN_SIZE_AFTER_UNCLIP = 5f
 

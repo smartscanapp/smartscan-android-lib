@@ -3,14 +3,14 @@ package com.fpf.smartscansdk.ml.providers.ocr.preprocess
 import android.graphics.Bitmap
 import com.fpf.smartscansdk.ml.providers.ocr.util.ImageUtils
 
-data class DetPreprocessResult(
+internal data class DetPreprocessResult(
     val tensorData: FloatArray,
     val shape: LongArray,
     val originalH: Int,
     val originalW: Int,
 )
 
-object DetPreprocessor {
+internal object DetPreprocessor {
 
     private val mean = floatArrayOf(0.485f, 0.456f, 0.406f)
     private val std = floatArrayOf(0.229f, 0.224f, 0.225f)

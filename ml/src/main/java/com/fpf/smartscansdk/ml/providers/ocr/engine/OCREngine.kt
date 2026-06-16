@@ -3,7 +3,6 @@ package com.fpf.smartscansdk.ml.providers.ocr.engine
 import android.content.Context
 import android.graphics.Bitmap
 import com.fpf.smartscansdk.ml.models.ModelAssetSource
-import com.fpf.smartscansdk.ml.providers.ocr.EngineConfig
 import com.fpf.smartscansdk.ml.providers.ocr.PaddleOCRConfig
 import com.fpf.smartscansdk.ml.providers.ocr.model.ModelConfig
 import com.fpf.smartscansdk.ml.providers.ocr.model.OCRError
@@ -11,37 +10,31 @@ import com.fpf.smartscansdk.ml.providers.ocr.model.OCRResult
 import com.fpf.smartscansdk.ml.providers.ocr.postprocess.BoxSorter
 import com.fpf.smartscansdk.ml.providers.ocr.postprocess.QuadTextCrop
 import com.fpf.smartscansdk.ml.providers.ocr.util.BitmapUtils
-import kotlinx.coroutines.runBlocking
 
-class OCREngine(
+internal class OCREngine(
     context: Context,
-    private val config: PaddleOCRConfig,
-    engineConfig: EngineConfig,
     detModelAsset: ModelAssetSource,
     recModelAsset: ModelAssetSource,
     recConfigAsset: ModelAssetSource,
-) {
+    private val config: PaddleOCRConfig,
+    ) {
 
-    private val ortManager = ORTSessionManager(context, engineConfig)
     private val detectionEngine: DetectionEngine
     private val recognitionEngine: RecognitionEngine
 
-    val coldLoadTimeMs: Long get() = ortManager.coldLoadTimeMs
 
     init {
-        val recConfig = runBlocking {
-            try {
-                ortManager.loadModels(detModelAsset, recModelAsset)
-                ModelConfig.parse(context, recConfigAsset)
-            } catch (t: Throwable) {
-                ortManager.release()
-                throw t
-            }
-        }
-
-        detectionEngine = DetectionEngine(ortManager, config)
-        recognitionEngine = RecognitionEngine(ortManager, recConfig.characterList)
+        val recConfig = ModelConfig.parse(context, recConfigAsset)
+        detectionEngine = DetectionEngine(context, detModelAsset, config)
+        recognitionEngine = RecognitionEngine(context, recModelAsset, recConfig.characterList)
     }
+
+    suspend fun initialize() {
+        detectionEngine.initialize()
+        recognitionEngine.initialize()
+    }
+
+    fun isInitialized() = detectionEngine.isInitialized() && recognitionEngine.isInitialized()
 
     fun run(bitmap: Bitmap): OCREngineResult {
         return runInternal(bitmap)
@@ -84,7 +77,6 @@ class OCREngine(
                 detInferenceMs = detResult.inferenceMs,
                 detPostprocessMs = detResult.postprocessMs,
                 detInputShape = detResult.inputShape,
-                coldLoadTimeMs = ortManager.coldLoadTimeMs,
             )
         }
 
@@ -172,14 +164,14 @@ class OCREngine(
             recInferenceMs = totalRecInfMs,
             recPostprocessMs = totalRecPostMs,
             pipelineOverheadMs = pipelineOverhead,
-            coldLoadTimeMs = ortManager.coldLoadTimeMs,
             detInputShape = detResult.inputShape,
             recInputShapes = recInputShapes,
             perLineRecMs = perLineRecMs,
         )
     }
 
-    fun release() {
-        ortManager.release()
+    fun close() {
+        detectionEngine.close()
+        recognitionEngine.close()
     }
 }

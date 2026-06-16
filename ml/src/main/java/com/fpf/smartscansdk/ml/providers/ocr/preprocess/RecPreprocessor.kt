@@ -3,12 +3,12 @@ package com.fpf.smartscansdk.ml.providers.ocr.preprocess
 import android.graphics.Bitmap
 import kotlin.math.ceil
 
-data class RecPreprocessResult(
+internal data class RecPreprocessResult(
     val tensorData: FloatArray,
     val shape: LongArray,
 )
 
-object RecPreprocessor {
+internal object RecPreprocessor {
 
     private const val FIXED_HEIGHT = 48
     private const val MAX_IMG_W = 3200

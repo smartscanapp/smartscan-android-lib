@@ -1,29 +1,25 @@
-// Copyright (c) 2026 PaddlePaddle Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package com.fpf.smartscansdk.ml.providers.ocr.engine
 
 
+import ai.onnxruntime.OnnxTensor
+import android.content.Context
 import android.graphics.Bitmap
+import com.fpf.smartscansdk.core.SmartScanException
+import com.fpf.smartscansdk.core.copyFloatBuffer
+import com.fpf.smartscansdk.ml.models.ModelAssetSource
+import com.fpf.smartscansdk.ml.models.OnnxModel
+import com.fpf.smartscansdk.ml.models.loaders.FileOnnxLoader
+import com.fpf.smartscansdk.ml.models.loaders.ResourceOnnxLoader
 import com.fpf.smartscansdk.ml.providers.ocr.PaddleOCRConfig
 import com.fpf.smartscansdk.ml.providers.ocr.model.OCRBox
 import com.fpf.smartscansdk.ml.providers.ocr.postprocess.DBPostProcessor
 import com.fpf.smartscansdk.ml.providers.ocr.preprocess.DetPreprocessResult
 import com.fpf.smartscansdk.ml.providers.ocr.preprocess.DetPreprocessor
+import java.nio.FloatBuffer
 
-class DetectionEngine(
-    private val ortManager: ORTSessionManager,
+internal class DetectionEngine(
+    context: Context,
+    modelSource: ModelAssetSource,
     private val config: PaddleOCRConfig,
 ) {
     data class DetectionResult(
@@ -34,6 +30,17 @@ class DetectionEngine(
         val timeMs: Long,
         val inputShape: List<Int>,
     )
+
+    private val model: OnnxModel = when(modelSource) {
+        is ModelAssetSource.Resource -> OnnxModel(ResourceOnnxLoader(context.resources, modelSource.resId))
+        is ModelAssetSource.LocalFile -> OnnxModel(FileOnnxLoader(modelSource.file))
+    }
+
+    suspend fun initialize() = model.loadModel()
+
+    fun isInitialized() = model.isLoaded()
+
+    fun close() = model.close()
 
     fun detect(bitmap: Bitmap): DetectionResult {
         return detect {
@@ -48,14 +55,14 @@ class DetectionEngine(
     }
 
     private fun detect(preprocessor: () -> DetPreprocessResult): DetectionResult {
+        if (!model.isLoaded()) throw SmartScanException.ModelNotInitialised()
+
         val preStart = System.currentTimeMillis()
         val preResult = preprocessor()
         val preprocessMs = System.currentTimeMillis() - preStart
-
         val infStart = System.currentTimeMillis()
-        val (outputData, outputShape) = ortManager.runDetection(preResult.tensorData, preResult.shape)
+        val (outputData, outputShape) = run(preResult.tensorData, preResult.shape)
         val inferenceMs = System.currentTimeMillis() - infStart
-
         val postStart = System.currentTimeMillis()
         val boxes = DBPostProcessor.process(
             pred = outputData,
@@ -81,4 +88,17 @@ class DetectionEngine(
             inputShape = listOf(1, 3, preResult.shape[2].toInt(), preResult.shape[3].toInt()),
         )
     }
+
+    private fun run(tensorData: FloatArray, shape: LongArray): Pair<FloatArray, LongArray>{
+        val inputName = model.getInputNames()!!.first()
+        val tensor = OnnxTensor.createTensor(model.getEnv(), FloatBuffer.wrap(tensorData), shape)
+        val output = model.run(mapOf(inputName to tensor))
+        val outputTensor = output.values.firstOrNull() as? OnnxTensor?: throw Exception("Output is not an ONNX tensor")
+        try {
+           return  Pair(copyFloatBuffer(outputTensor.floatBuffer), outputTensor.info.shape)
+        }finally {
+            output.values.forEach { it.close() }
+        }
+    }
+
 }

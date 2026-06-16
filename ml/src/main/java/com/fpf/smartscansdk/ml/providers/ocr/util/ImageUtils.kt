@@ -2,8 +2,9 @@ package com.fpf.smartscansdk.ml.providers.ocr.util
 
 import android.graphics.Bitmap
 import kotlin.math.max
+import androidx.core.graphics.scale
 
-object ImageUtils {
+internal object ImageUtils {
 
     fun resizeToMultipleOf32(
         src: Bitmap,
@@ -42,7 +43,7 @@ object ImageUtils {
         newH = max(roundHalfToEven(newH / 32.0) * 32, 32)
         newW = max(roundHalfToEven(newW / 32.0) * 32, 32)
 
-        return Bitmap.createScaledBitmap(src, newW, newH, true)
+        return src.scale(newW, newH)
     }
 
     private fun roundHalfToEven(value: Double): Int {

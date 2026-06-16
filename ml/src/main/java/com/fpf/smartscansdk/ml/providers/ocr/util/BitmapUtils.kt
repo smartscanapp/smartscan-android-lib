@@ -3,7 +3,7 @@ package com.fpf.smartscansdk.ml.providers.ocr.util
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 
-object BitmapUtils {
+internal object BitmapUtils {
 
     fun imdecodeBGR(imageBytes: ByteArray): Bitmap {
         val options = BitmapFactory.Options().apply {
