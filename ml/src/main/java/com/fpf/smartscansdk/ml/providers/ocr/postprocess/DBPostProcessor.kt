@@ -2,9 +2,9 @@ package com.fpf.smartscansdk.ml.providers.ocr.postprocess
 
 import android.graphics.PointF
 import com.fpf.smartscansdk.ml.providers.ocr.model.OCRBox
-import com.fpf.smartscansdk.ml.providers.ocr.util.MathUtils
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.floor
 import kotlin.math.hypot
 import kotlin.math.min
 import kotlin.math.sin
@@ -186,8 +186,8 @@ internal object DBPostProcessor {
         originalH: Int,
     ): PointF {
         return PointF(
-            MathUtils.roundHalfToEven(point.x * scaleX).coerceIn(0, originalW).toFloat(),
-            MathUtils.roundHalfToEven(point.y * scaleY).coerceIn(0, originalH).toFloat(),
+            roundHalfToEven(point.x * scaleX).coerceIn(0, originalW).toFloat(),
+            roundHalfToEven(point.y * scaleY).coerceIn(0, originalH).toFloat(),
         )
     }
 
@@ -275,5 +275,16 @@ internal object DBPostProcessor {
         }
 
         return components
+    }
+
+    fun roundHalfToEven(value: Double): Int {
+        val floored = floor(value)
+        val diff = value - floored
+        return when {
+            diff < 0.5 -> floored.toInt()
+            diff > 0.5 -> floored.toInt() + 1
+            floored.toInt() % 2 == 0 -> floored.toInt()
+            else -> floored.toInt() + 1
+        }
     }
 }

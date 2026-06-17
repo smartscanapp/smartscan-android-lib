@@ -1,7 +1,7 @@
 package com.fpf.smartscansdk.ml.providers.ocr.preprocess
 
 import android.graphics.Bitmap
-import com.fpf.smartscansdk.ml.providers.ocr.util.ImageUtils
+import com.fpf.smartscansdk.core.media.resizeToMultipleOf32
 
 internal data class DetPreprocessResult(
     val tensorData: FloatArray,
@@ -27,7 +27,7 @@ internal object DetPreprocessor {
         val originalH = bitmap.height
         val originalW = bitmap.width
 
-        val resized = ImageUtils.resizeToMultipleOf32(
+        val resized = resizeToMultipleOf32(
             bitmap,
             limitSideLen,
             limitType,

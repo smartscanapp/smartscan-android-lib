@@ -2,6 +2,7 @@ package com.fpf.smartscansdk.ml.providers.ocr.preprocess
 
 import android.graphics.Bitmap
 import kotlin.math.ceil
+import androidx.core.graphics.scale
 
 internal data class RecPreprocessResult(
     val tensorData: FloatArray,
@@ -27,12 +28,7 @@ internal object RecPreprocessor {
                 .coerceAtMost(MAX_IMG_W)
 
             resized.add(
-                Bitmap.createScaledBitmap(
-                    bmp,
-                    newW,
-                    FIXED_HEIGHT,
-                    true
-                )
+                bmp.scale(newW, FIXED_HEIGHT)
             )
         }
 

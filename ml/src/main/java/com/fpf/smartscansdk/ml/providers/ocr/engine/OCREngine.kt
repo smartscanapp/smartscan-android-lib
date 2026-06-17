@@ -2,6 +2,7 @@ package com.fpf.smartscansdk.ml.providers.ocr.engine
 
 import android.content.Context
 import android.graphics.Bitmap
+import com.fpf.smartscansdk.core.media.imdecodeBGR
 import com.fpf.smartscansdk.ml.models.ModelAssetSource
 import com.fpf.smartscansdk.ml.providers.ocr.PaddleOCRConfig
 import com.fpf.smartscansdk.ml.providers.ocr.model.ModelConfig
@@ -9,7 +10,6 @@ import com.fpf.smartscansdk.ml.providers.ocr.model.OCRError
 import com.fpf.smartscansdk.ml.providers.ocr.model.OCRResult
 import com.fpf.smartscansdk.ml.providers.ocr.postprocess.BoxSorter
 import com.fpf.smartscansdk.ml.providers.ocr.postprocess.QuadTextCrop
-import com.fpf.smartscansdk.ml.providers.ocr.util.BitmapUtils
 
 internal class OCREngine(
     context: Context,
@@ -42,7 +42,7 @@ internal class OCREngine(
 
     fun run(imageBytes: ByteArray): OCREngineResult {
         val bmp = try {
-            BitmapUtils.imdecodeBGR(imageBytes)
+            imdecodeBGR(imageBytes)
         } catch (t: Throwable) {
             throw OCRError.InvalidImage()
         }

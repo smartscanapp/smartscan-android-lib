@@ -2,7 +2,6 @@ package com.fpf.smartscansdk.ml.providers.ocr.model
 
 import android.content.Context
 import com.fpf.smartscansdk.ml.models.ModelAssetSource
-import com.fpf.smartscansdk.ml.providers.ocr.util.YamlUtils
 
 internal data class ModelConfig(
     val characterList: List<String>,
@@ -39,18 +38,18 @@ internal data class ModelConfig(
                 throw OCRError.ConfigParseFailed()
             }
 
-            val postProcessIndent = YamlUtils.leadingSpaces(lines[postProcessLine])
+            val postProcessIndent = leadingSpaces(lines[postProcessLine])
             val characterDictLine = findCharacterDictLine(lines, postProcessLine + 1, postProcessIndent)
             if (characterDictLine < 0) {
                 throw OCRError.ConfigParseFailed()
             }
 
-            val characterDictIndent = YamlUtils.leadingSpaces(lines[characterDictLine])
+            val characterDictIndent = leadingSpaces(lines[characterDictLine])
             val characters = mutableListOf<String>()
             var lineIndex = characterDictLine + 1
             while (lineIndex < lines.size) {
                 val line = lines[lineIndex]
-                val indent = YamlUtils.leadingSpaces(line)
+                val indent = leadingSpaces(line)
                 val content = line.substring(indent)
                 val keyLikeContent = content.trim()
                 if (keyLikeContent.isEmpty() || keyLikeContent.startsWith("#")) {
@@ -87,7 +86,7 @@ internal data class ModelConfig(
                     lineIndex++
                     continue
                 }
-                val indent = YamlUtils.leadingSpaces(line)
+                val indent = leadingSpaces(line)
                 if (indent <= postProcessIndent) break
                 if (trimmed == "character_dict:") return lineIndex
                 lineIndex++
@@ -109,6 +108,10 @@ internal data class ModelConfig(
                     .replace("\\t", "\t")
             }
             return value
+        }
+
+        private fun leadingSpaces(line: String): Int {
+            return line.indexOfFirst { it != ' ' }.let { if (it < 0) line.length else it }
         }
     }
 }
