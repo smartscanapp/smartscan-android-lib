@@ -41,7 +41,6 @@ class FaceDetector(
 
     override fun isInitialized() = model.isLoaded()
 
-    private var closed = false
 
     override suspend fun detect(input: Bitmap): Pair<List<Float>, List<FloatArray>> =
         withContext(Dispatchers.Default) {
@@ -131,9 +130,6 @@ class FaceDetector(
         return floatBuffer
     }
 
-    override fun closeSession() {
-        if (closed) return
-        closed = true
-        (model as? AutoCloseable)?.close()
-    }
+    override fun closeSession()  = model.close()
+
 }

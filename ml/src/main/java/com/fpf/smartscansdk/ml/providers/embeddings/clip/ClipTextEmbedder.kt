@@ -40,8 +40,6 @@ class ClipTextEmbedder(
     override val embeddingDim: Int = 512
     override val maxTokens: Int = 77
 
-    private var closed = false
-
     override suspend fun initialize() = model.loadModel()
 
     override fun isInitialized() = model.isLoaded()
@@ -68,9 +66,5 @@ class ClipTextEmbedder(
         }
     }
 
-    override fun closeSession() {
-        if (closed) return
-        closed = true
-        (model as? AutoCloseable)?.close()
-    }
+    override fun closeSession()  = model.close()
 }

@@ -38,7 +38,6 @@ class DinoV2SmallImageEmbedder(
     }
 
     override val embeddingDim: Int = 384
-    private var closed = false
 
     override suspend fun initialize() = model.loadModel()
 
@@ -59,11 +58,7 @@ class DinoV2SmallImageEmbedder(
         }
     }
 
-    override fun closeSession() {
-        if (closed) return
-        closed = true
-        (model as? AutoCloseable)?.close()
-    }
+    override fun closeSession()  = model.close()
 
     private fun preProcess(bitmap: Bitmap): FloatBuffer {
         val cropped = centerCrop(bitmap, IMAGE_SIZE_X)

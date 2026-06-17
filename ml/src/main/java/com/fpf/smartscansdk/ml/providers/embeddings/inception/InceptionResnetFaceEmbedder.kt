@@ -36,7 +36,6 @@ class InceptionResnetFaceEmbedder(
     }
 
     override val embeddingDim: Int = 512
-    private var closed = false
 
     override suspend fun initialize() = model.loadModel()
 
@@ -78,9 +77,6 @@ class InceptionResnetFaceEmbedder(
         return imgData
     }
 
-    override fun closeSession() {
-        if (closed) return
-        closed = true
-        (model as? AutoCloseable)?.close()
-    }
+    override fun closeSession()  = model.close()
+
 }

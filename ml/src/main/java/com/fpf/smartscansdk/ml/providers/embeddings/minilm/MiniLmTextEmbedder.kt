@@ -37,7 +37,6 @@ class MiniLMTextEmbedder(
         else -> throw SmartScanException.InvalidTextEmbedderResourceFiles()
     }
 
-    private var closed = false
     override val embeddingDim: Int = 384
 
     override suspend fun initialize()  {
@@ -86,9 +85,6 @@ class MiniLMTextEmbedder(
         }
     }
 
-    override fun closeSession() {
-        if (closed) return
-        closed = true
-        (model as? AutoCloseable)?.close()
-    }
+    override fun closeSession()  = model.close()
+
 }
