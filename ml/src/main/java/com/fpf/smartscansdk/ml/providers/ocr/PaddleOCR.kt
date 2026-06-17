@@ -2,10 +2,10 @@ package com.fpf.smartscansdk.ml.providers.ocr
 
 import android.content.Context
 import android.graphics.Bitmap
+import com.fpf.smartscansdk.core.SmartScanException
 import com.fpf.smartscansdk.ml.models.ModelAssetSource
 import com.fpf.smartscansdk.ml.providers.ocr.engine.OCREngine
 import com.fpf.smartscansdk.ml.providers.ocr.engine.OCREngineResult
-import com.fpf.smartscansdk.ml.providers.ocr.model.OCRError
 import com.fpf.smartscansdk.ml.providers.ocr.model.OCRRunResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -42,14 +42,14 @@ class PaddleOCR private constructor(
 
     suspend fun recognize(bitmap: Bitmap): OCRRunResult {
         if (bitmap.width == 0 || bitmap.height == 0) {
-            throw OCRError.InvalidImage()
+            throw SmartScanException.InvalidInput("Invalid image input for OCR")
         }
         return recognizeResult { engine.run(bitmap) }
     }
 
     suspend fun recognize(imageBytes: ByteArray): OCRRunResult {
         if (imageBytes.isEmpty()) {
-            throw OCRError.InvalidImage()
+            throw SmartScanException.InvalidInput("Invalid image input for OCR")
         }
         return recognizeResult { engine.run(imageBytes) }
     }

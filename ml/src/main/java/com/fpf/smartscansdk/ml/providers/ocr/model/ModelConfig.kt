@@ -1,6 +1,7 @@
 package com.fpf.smartscansdk.ml.providers.ocr.model
 
 import android.content.Context
+import com.fpf.smartscansdk.core.SmartScanException
 import com.fpf.smartscansdk.ml.models.ModelAssetSource
 
 internal data class ModelConfig(
@@ -15,14 +16,14 @@ internal data class ModelConfig(
                 }
                 reader.use { it.readText() }
             } catch (t: Throwable) {
-                throw OCRError.ConfigParseFailed(t)
+                throw SmartScanException.ConfigParseFailed(cause = t)
             }
             val characterDict = try {
                 extractCharacterDict(content)
-            } catch (e: OCRError.ConfigParseFailed) {
+            } catch (e: SmartScanException.ConfigParseFailed) {
                 throw e
             } catch (t: Throwable) {
-                throw OCRError.ConfigParseFailed( t)
+                throw SmartScanException.ConfigParseFailed( cause = t)
             }
             val charListWithSpace = characterDict.toMutableList().apply {
                 if (lastOrNull() != " ") add(" ")
@@ -35,13 +36,13 @@ internal data class ModelConfig(
             val lines = content.replace("\r\n", "\n").replace('\r', '\n').lines()
             val postProcessLine = lines.indexOfFirst { it.trim() == "PostProcess:" }
             if (postProcessLine < 0) {
-                throw OCRError.ConfigParseFailed()
+                throw SmartScanException.ConfigParseFailed()
             }
 
             val postProcessIndent = leadingSpaces(lines[postProcessLine])
             val characterDictLine = findCharacterDictLine(lines, postProcessLine + 1, postProcessIndent)
             if (characterDictLine < 0) {
-                throw OCRError.ConfigParseFailed()
+                throw SmartScanException.ConfigParseFailed()
             }
 
             val characterDictIndent = leadingSpaces(lines[characterDictLine])
@@ -68,7 +69,7 @@ internal data class ModelConfig(
             }
 
             if (characters.isEmpty()) {
-                throw OCRError.ConfigParseFailed()
+                throw SmartScanException.ConfigParseFailed()
             }
             return characters
         }
