@@ -1,20 +1,21 @@
 package com.fpf.smartscansdk.ml.providers.embeddings.minilm
 
+import ai.onnxruntime.OnnxTensor
 import android.content.Context
 import com.fpf.smartscansdk.core.SmartScanException
+import com.fpf.smartscansdk.core.copyFloatBuffer
 import com.fpf.smartscansdk.core.embeddings.TextEmbeddingProvider
 import com.fpf.smartscansdk.core.embeddings.normalizeL2
 import com.fpf.smartscansdk.ml.models.ModelAssetSource
 import com.fpf.smartscansdk.ml.models.OnnxModel
 import com.fpf.smartscansdk.ml.models.loaders.FileOnnxLoader
 import com.fpf.smartscansdk.ml.models.loaders.ResourceOnnxLoader
-import com.fpf.smartscansdk.ml.models.TensorData
 import kotlinx.coroutines.*
 import java.nio.LongBuffer
 import kotlin.collections.toLongArray
 
 class MiniLMTextEmbedder(
-    private val context: Context,
+    context: Context,
     modelSource: ModelAssetSource,
     vocabSource: ModelAssetSource,
     configSource: ModelAssetSource,
@@ -66,24 +67,23 @@ class MiniLMTextEmbedder(
         }
 
         val shape = longArrayOf(1, maxTokens.toLong())
-        val inputIdsTensor = TensorData.LongBufferTensor(
+        val inputIdsTensor = OnnxTensor.createTensor(
+            model.getEnv(),
             LongBuffer.wrap(ids.map { it.toLong() }.toLongArray()),
             shape
         )
-        val attentionMaskTensor = TensorData.LongBufferTensor(
+        val attentionMaskTensor = OnnxTensor.createTensor(
+            model.getEnv(),
             LongBuffer.wrap(mask.map { it.toLong() }.toLongArray()),
             shape
         )
-
-        val output = model.run(
-            mapOf(
-                "input_ids" to inputIdsTensor,
-                "attention_mask" to attentionMaskTensor
-            )
-        )
-
-        val embeddings = (output.values.first() as Array<FloatArray>)[0]
-        normalizeL2(embeddings)
+        val output = model.run(mapOf("input_ids" to inputIdsTensor, "attention_mask" to attentionMaskTensor))
+        val embedding = output.values.first() as OnnxTensor
+        try {
+            normalizeL2(copyFloatBuffer((embedding).floatBuffer))
+        }finally {
+            output.values.forEach { it.close() }
+        }
     }
 
     override fun closeSession() {

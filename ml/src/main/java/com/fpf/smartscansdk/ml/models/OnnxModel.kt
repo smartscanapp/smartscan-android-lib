@@ -1,6 +1,7 @@
 package com.fpf.smartscansdk.ml.models
 
 import ai.onnxruntime.OnnxTensor
+import ai.onnxruntime.OnnxValue
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import com.fpf.smartscansdk.core.SmartScanException
@@ -9,7 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 
-class OnnxModel(override val loader: ModelLoader<ByteArray>) : BaseModel<TensorData>() {
+class OnnxModel(override val loader: ModelLoader<ByteArray>) : BaseModel<OnnxTensor, OnnxValue>() {
     private val env: OrtEnvironment = OrtEnvironment.getEnvironment()
     private var session: OrtSession? = null
 
@@ -22,40 +23,20 @@ class OnnxModel(override val loader: ModelLoader<ByteArray>) : BaseModel<TensorD
 
     override fun isLoaded(): Boolean = session != null
 
-    override fun run(inputs: Map<String, TensorData>): Map<String, Any> {
-        val s = session ?: throw SmartScanException.ModelNotInitialised()
-        val createdTensors: Map<String, OnnxTensor> = inputs.mapValues { (_, tensorData) ->
-            createOnnxTensor(tensorData)
-        }
+    override fun run(inputs: Map<String, OnnxTensor>): Map<String, OnnxValue> {
+        val onnxSession = session ?: throw SmartScanException.ModelNotInitialised()
 
         try {
-            s.run(createdTensors).use { results ->
-                return results.associate { it.key to it.value.value }
-            }
+            val results = onnxSession.run(inputs)
+            return results.associate { it.key to it.value }
         } finally {
-            createdTensors.values.forEach { try { it.close() } catch (_: Exception) {} }
-        }
-    }
-
-    private fun createOnnxTensor(tensorData: TensorData): OnnxTensor {
-        return when (tensorData) {
-            is TensorData.FloatBufferTensor -> OnnxTensor.createTensor(env, tensorData.data, tensorData.shape)
-            is TensorData.IntBufferTensor -> OnnxTensor.createTensor(env, tensorData.data, tensorData.shape)
-            is TensorData.LongBufferTensor -> OnnxTensor.createTensor(env, tensorData.data, tensorData.shape)
-            is TensorData.DoubleBufferTensor -> OnnxTensor.createTensor(env, tensorData.data, tensorData.shape)
-            is TensorData.ShortBufferTensor -> {
-                val type = tensorData.type
-                if (type != null) {
-                    OnnxTensor.createTensor(env, tensorData.data, tensorData.shape, type)
-                } else {
-                    OnnxTensor.createTensor(env, tensorData.data, tensorData.shape)
-                }
-            }
-            is TensorData.ByteBufferTensor -> OnnxTensor.createTensor(env, tensorData.data, tensorData.shape, tensorData.type)
+            inputs.values.forEach { try { it.close() } catch (_: Exception) {} }
         }
     }
 
     fun getInputNames(): List<String>? = session?.inputNames?.toList()
+
+    fun getOutputNames(): List<String>? = session?.outputNames?.toList()
 
     fun getEnv(): OrtEnvironment = env
 

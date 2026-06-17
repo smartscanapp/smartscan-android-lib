@@ -1,14 +1,15 @@
 package com.fpf.smartscansdk.ml.providers.embeddings.clip
 
+import ai.onnxruntime.OnnxTensor
 import android.content.Context
 import com.fpf.smartscansdk.core.SmartScanException
+import com.fpf.smartscansdk.core.copyFloatBuffer
 import com.fpf.smartscansdk.core.embeddings.TextEmbeddingProvider
 import com.fpf.smartscansdk.core.embeddings.normalizeL2
 import com.fpf.smartscansdk.ml.models.ModelAssetSource
 import com.fpf.smartscansdk.ml.models.OnnxModel
 import com.fpf.smartscansdk.ml.models.loaders.FileOnnxLoader
 import com.fpf.smartscansdk.ml.models.loaders.ResourceOnnxLoader
-import com.fpf.smartscansdk.ml.models.TensorData
 import kotlinx.coroutines.*
 import java.nio.LongBuffer
 
@@ -58,8 +59,13 @@ class ClipTextEmbedder(
         }
         val inputShape = longArrayOf(1, maxTokens.toLong())
         val inputName = model.getInputNames()!!.first()
-        val output = model.run(mapOf(inputName to TensorData.LongBufferTensor(inputIds, inputShape)))
-        normalizeL2((output.values.first() as Array<FloatArray>)[0])
+        val output = model.run(mapOf(inputName to OnnxTensor.createTensor(model.getEnv(), inputIds, inputShape)))
+        val embedding = output.values.first() as OnnxTensor
+        try {
+            normalizeL2(copyFloatBuffer((embedding).floatBuffer))
+        }finally {
+            output.values.forEach { it.close() }
+        }
     }
 
     override fun closeSession() {

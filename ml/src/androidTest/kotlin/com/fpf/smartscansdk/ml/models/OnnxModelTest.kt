@@ -15,6 +15,7 @@ import io.mockk.unmockkAll
 import io.mockk.verify
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertArrayEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.Assert.assertTrue
@@ -78,8 +79,6 @@ class OnnxModelInstrumentedTest {
         fakeBuffer.put(1.0f)
         fakeBuffer.flip()
 
-        val tensorData = TensorData.FloatBufferTensor(fakeBuffer, longArrayOf(1))
-
         // Mock OnnxTensor creation
         val onnxTensor = mockk<OnnxTensor>(relaxed = true)
         mockkStatic(OnnxTensor::class)
@@ -99,12 +98,12 @@ class OnnxModelInstrumentedTest {
         every { session.run(any<Map<String, OnnxTensor>>()) } returns result
 
         // Run the model
-        val inputs = mapOf("in" to tensorData)
+        val inputs = mapOf("in" to onnxTensor)
         val output = model.run(inputs)
 
         // Assertions
         assertTrue(output.containsKey("out"))
-        assertEquals(floatArrayOf(1.0f).toList(), (output["out"] as FloatArray).toList())
+        assertArrayEquals(floatArrayOf(1.0f), output.values.first().value as FloatArray, 0.0f)
     }
 
 

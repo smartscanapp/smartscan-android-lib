@@ -8,7 +8,6 @@ import androidx.test.core.app.ApplicationProvider
 import com.fpf.smartscansdk.core.embeddings.embedBatch
 import com.fpf.smartscansdk.ml.models.ModelAssetSource
 import com.fpf.smartscansdk.ml.models.OnnxModel
-import com.fpf.smartscansdk.ml.models.TensorData
 import com.fpf.smartscansdk.ml.providers.embeddings.clip.ClipImageEmbedder.Companion.IMAGE_SIZE_X
 import com.fpf.smartscansdk.ml.providers.embeddings.clip.ClipImageEmbedder.Companion.IMAGE_SIZE_Y
 import io.mockk.*
@@ -71,17 +70,23 @@ class ClipImageEmbedderInstrumentedTest {
 
         // mock internal model
         val mockModel = mockk<OnnxModel>(relaxed = true)
+        val env = OrtEnvironment.getEnvironment()
         every { mockModel.isLoaded() } returns true
         every { mockModel.getInputNames() } returns listOf("input")
-        every { mockModel.getEnv() } returns mockk<OrtEnvironment>()
+        every { mockModel.getEnv() } returns env
 
         // prepare fake output: Array<FloatArray> with length 512
-        val raw = Array(1) { FloatArray(embedder.embeddingDim) { 1.0f } }
-        every { mockModel.run(any<Map<String, TensorData>>()) } returns mapOf("out" to raw)
+        val raw = FloatArray(embedder.embeddingDim) { 1.0f }
+        val outputTensor = OnnxTensor.createTensor(
+            mockModel.getEnv(), // or real OrtEnvironment if available
+            FloatBuffer.wrap(raw),
+            longArrayOf(1, embedder.embeddingDim.toLong())
+        )
+        every { mockModel.run(any<Map<String, OnnxTensor>>()) } returns mapOf("out" to outputTensor)
 
         // mock tensor creation and closing; specify types so mockk can infer overload
         val mockTensor = mockk<OnnxTensor>(relaxed = true)
-        every { OnnxTensor.createTensor(any<OrtEnvironment>(), any<FloatBuffer>(), any<LongArray>()) } returns mockTensor
+        every { OnnxTensor.createTensor(mockModel.getEnv(), any<FloatBuffer>(), any<LongArray>()) } returns mockTensor
         every { mockTensor.close() } just Runs
 
         // inject mockModel
@@ -104,16 +109,24 @@ class ClipImageEmbedderInstrumentedTest {
         val embedder = ClipImageEmbedder(context, ModelAssetSource.Resource(0))
 
         val mockModel = mockk<OnnxModel>(relaxed = true)
+
+        val env = OrtEnvironment.getEnvironment()
+
         every { mockModel.isLoaded() } returns true
         every { mockModel.getInputNames() } returns listOf("input")
-        every { mockModel.getEnv() } returns mockk<OrtEnvironment>()
+        every { mockModel.getEnv() } returns env
 
-        val raw = Array(1) { FloatArray(embedder.embeddingDim) { 1.0f } }
-        every { mockModel.run(any<Map<String, TensorData>>()) } returns mapOf("out" to raw)
+        every { mockModel.run(any()) } answers {
+            val raw = FloatArray(embedder.embeddingDim) { 1.0f }
 
-        val mockTensor = mockk<OnnxTensor>(relaxed = true)
-        every { OnnxTensor.createTensor(any<OrtEnvironment>(), any<FloatBuffer>(), any<LongArray>()) } returns mockTensor
-        every { mockTensor.close() } just Runs
+            val tensor = OnnxTensor.createTensor(
+                env,
+                FloatBuffer.wrap(raw),
+                longArrayOf(1, embedder.embeddingDim.toLong())
+            )
+
+            mapOf("out" to tensor)
+        }
 
         val modelField = embedder::class.java.getDeclaredField("model")
         modelField.isAccessible = true
@@ -121,7 +134,12 @@ class ClipImageEmbedderInstrumentedTest {
 
         val bmp1 = Bitmap.createBitmap(IMAGE_SIZE_X, IMAGE_SIZE_Y, Bitmap.Config.ARGB_8888)
         val bmp2 = Bitmap.createBitmap(IMAGE_SIZE_X, IMAGE_SIZE_Y, Bitmap.Config.ARGB_8888)
-        val results = embedBatch(  context.applicationContext, embedder,listOf(bmp1, bmp2))
+
+        val results = embedBatch(
+            context.applicationContext,
+            embedder,
+            listOf(bmp1, bmp2)
+        )
 
         assertEquals(2, results.size)
         assertEquals(embedder.embeddingDim, results[0].size)

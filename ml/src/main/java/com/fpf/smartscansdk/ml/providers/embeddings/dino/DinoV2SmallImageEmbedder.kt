@@ -1,16 +1,17 @@
 package com.fpf.smartscansdk.ml.providers.embeddings.dino
 
+import ai.onnxruntime.OnnxTensor
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.core.graphics.get
 import com.fpf.smartscansdk.core.SmartScanException
+import com.fpf.smartscansdk.core.copyFloatBuffer
 import com.fpf.smartscansdk.core.embeddings.ImageEmbeddingProvider
 import com.fpf.smartscansdk.core.embeddings.normalizeL2
 import com.fpf.smartscansdk.core.media.centerCrop
 import com.fpf.smartscansdk.ml.models.ModelAssetSource
 import com.fpf.smartscansdk.ml.models.loaders.FileOnnxLoader
 import com.fpf.smartscansdk.ml.models.OnnxModel
-import com.fpf.smartscansdk.ml.models.TensorData
 import com.fpf.smartscansdk.ml.models.loaders.ResourceOnnxLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -19,7 +20,7 @@ import java.nio.ByteOrder
 import java.nio.FloatBuffer
 
 class DinoV2SmallImageEmbedder(
-    private val context: Context,
+    context: Context,
     modelSource: ModelAssetSource,
 ) : ImageEmbeddingProvider {
 
@@ -49,8 +50,13 @@ class DinoV2SmallImageEmbedder(
         val inputShape = longArrayOf(DIM_BATCH_SIZE.toLong(), DIM_PIXEL_SIZE.toLong(), IMAGE_SIZE_Y.toLong(), IMAGE_SIZE_X.toLong())
         val imgData: FloatBuffer = preProcess(data)
         val inputName = model.getInputNames()!!.first()
-        val output = model.run(mapOf(inputName to TensorData.FloatBufferTensor(imgData, inputShape)))
-        normalizeL2((output.values.first() as Array<FloatArray>)[0])
+        val output = model.run(mapOf(inputName to OnnxTensor.createTensor(model.getEnv(), imgData, inputShape)))
+        val embedding = output.values.first() as OnnxTensor
+        try {
+            normalizeL2(copyFloatBuffer((embedding).floatBuffer))
+        }finally {
+            output.values.forEach { it.close() }
+        }
     }
 
     override fun closeSession() {
