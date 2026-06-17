@@ -5,6 +5,8 @@ import ai.onnxruntime.OrtEnvironment
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.fpf.smartscansdk.core.embeddings.embedBatch
+import com.fpf.smartscansdk.ml.embeddings.minilm.MiniLMTextEmbedder
+import com.fpf.smartscansdk.ml.embeddings.minilm.MiniLmTokenizer
 import com.fpf.smartscansdk.ml.models.ModelAssetSource
 import com.fpf.smartscansdk.ml.models.OnnxModel
 import io.mockk.*
@@ -40,7 +42,12 @@ class MiniLmTextEmbedderTest {
 
     @Test
     fun modelInitializationTest() = runBlocking {
-        val embedder = MiniLMTextEmbedder(context, ModelAssetSource.Resource(0), ModelAssetSource.Resource(1), ModelAssetSource.Resource(2))
+        val embedder = MiniLMTextEmbedder(
+            context,
+            ModelAssetSource.Resource(0),
+            ModelAssetSource.Resource(1),
+            ModelAssetSource.Resource(2)
+        )
         val mockModel = mockk<OnnxModel>(relaxed = true)
 
         coEvery { mockModel.loadModel() } answers { every { mockModel.isLoaded() } returns true }
@@ -56,7 +63,12 @@ class MiniLmTextEmbedderTest {
 
     @Test
     fun embeddingTest() = runBlocking {
-        val embedder = MiniLMTextEmbedder(context, ModelAssetSource.Resource(0), ModelAssetSource.Resource(1), ModelAssetSource.Resource(2))
+        val embedder = MiniLMTextEmbedder(
+            context,
+            ModelAssetSource.Resource(0),
+            ModelAssetSource.Resource(1),
+            ModelAssetSource.Resource(2)
+        )
         val mockModel = mockk<OnnxModel>(relaxed = true)
         val env = OrtEnvironment.getEnvironment()
         every { mockModel.isLoaded() } returns true
@@ -131,7 +143,12 @@ class MiniLmTextEmbedderTest {
 
     @Test
     fun maxTokenHandlingTest() = runBlocking {
-        val embedder = MiniLMTextEmbedder(context, ModelAssetSource.Resource(0), ModelAssetSource.Resource(1), ModelAssetSource.Resource(2))
+        val embedder = MiniLMTextEmbedder(
+            context,
+            ModelAssetSource.Resource(0),
+            ModelAssetSource.Resource(1),
+            ModelAssetSource.Resource(2)
+        )
         val mockModel = mockk<OnnxModel>(relaxed = true)
         val env = OrtEnvironment.getEnvironment()
 

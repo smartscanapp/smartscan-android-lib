@@ -5,6 +5,8 @@ import ai.onnxruntime.OrtEnvironment
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.fpf.smartscansdk.core.embeddings.embedBatch
+import com.fpf.smartscansdk.ml.embeddings.clip.ClipTextEmbedder
+import com.fpf.smartscansdk.ml.embeddings.clip.ClipTokenizer
 import com.fpf.smartscansdk.ml.models.ModelAssetSource
 import com.fpf.smartscansdk.ml.models.OnnxModel
 import io.mockk.*
@@ -40,7 +42,12 @@ class ClipTextEmbedderInstrumentedTest {
 
     @Test
     fun modelInitializationTest() = runBlocking {
-        val embedder = ClipTextEmbedder(context, ModelAssetSource.Resource(0), ModelAssetSource.Resource(1), ModelAssetSource.Resource(2))
+        val embedder = ClipTextEmbedder(
+            context,
+            ModelAssetSource.Resource(0),
+            ModelAssetSource.Resource(1),
+            ModelAssetSource.Resource(2)
+        )
         val mockModel = mockk<OnnxModel>(relaxed = true)
         coEvery { mockModel.loadModel() } answers { every { mockModel.isLoaded() } returns true }
         val field = embedder::class.java.getDeclaredField("model")
@@ -55,7 +62,12 @@ class ClipTextEmbedderInstrumentedTest {
 
     @Test
     fun embeddingTest() = runBlocking {
-        val embedder = ClipTextEmbedder(context, ModelAssetSource.Resource(0), ModelAssetSource.Resource(1), ModelAssetSource.Resource(2))
+        val embedder = ClipTextEmbedder(
+            context,
+            ModelAssetSource.Resource(0),
+            ModelAssetSource.Resource(1),
+            ModelAssetSource.Resource(2)
+        )
         val mockModel = mockk<OnnxModel>(relaxed = true)
         val env = OrtEnvironment.getEnvironment()
         every { mockModel.isLoaded() } returns true
@@ -129,7 +141,12 @@ class ClipTextEmbedderInstrumentedTest {
 
     @Test
     fun maxTokenHandlingTest() = runBlocking {
-        val embedder = ClipTextEmbedder(context, ModelAssetSource.Resource(0), ModelAssetSource.Resource(1), ModelAssetSource.Resource(2))
+        val embedder = ClipTextEmbedder(
+            context,
+            ModelAssetSource.Resource(0),
+            ModelAssetSource.Resource(1),
+            ModelAssetSource.Resource(2)
+        )
         val mockModel = mockk<OnnxModel>(relaxed = true)
         val env = OrtEnvironment.getEnvironment()
 
