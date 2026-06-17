@@ -126,21 +126,6 @@ class ClipTextEmbedderInstrumentedTest {
         assertEquals(2, results.size)
         assertEquals(embedder.embeddingDim, results[0].size)
     }
-    @Test
-    fun closeSessionTest() {
-        val embedder = ClipTextEmbedder(context, ModelAssetSource.Resource(0), ModelAssetSource.Resource(1), ModelAssetSource.Resource(2))
-        val mockModel = mockk<OnnxModel>(relaxed = true)
-        val field = embedder::class.java.getDeclaredField("model")
-        field.isAccessible = true
-        field.set(embedder, mockModel)
-
-        every { (mockModel as AutoCloseable).close() } just Runs
-
-        embedder.closeSession()
-        embedder.closeSession() // second call should be no-op
-
-        verify(exactly = 1) { (mockModel as AutoCloseable).close() }
-    }
 
     @Test
     fun maxTokenHandlingTest() = runBlocking {

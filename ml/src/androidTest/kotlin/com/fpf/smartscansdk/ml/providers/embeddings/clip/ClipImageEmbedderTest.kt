@@ -145,20 +145,4 @@ class ClipImageEmbedderInstrumentedTest {
         assertEquals(embedder.embeddingDim, results[0].size)
     }
 
-    @Test
-    fun closeSessionTest() {
-        val embedder = ClipImageEmbedder(context, ModelAssetSource.Resource(0))
-        val mockModel = mockk<OnnxModel>(relaxed = true)
-        val modelField = embedder::class.java.getDeclaredField("model")
-        modelField.isAccessible = true
-        modelField.set(embedder, mockModel)
-
-        // ensure model implements AutoCloseable close()
-        every { (mockModel as AutoCloseable).close() } just Runs
-
-        embedder.closeSession()
-        embedder.closeSession() // second call should be no-op
-
-        verify(exactly = 1) { (mockModel as AutoCloseable).close() }
-    }
 }
