@@ -8,8 +8,8 @@ import com.fpf.smartscansdk.core.embeddings.TextEmbeddingProvider
 import com.fpf.smartscansdk.core.embeddings.normalizeL2
 import com.fpf.smartscansdk.ml.models.ModelAssetSource
 import com.fpf.smartscansdk.ml.models.OnnxModel
-import com.fpf.smartscansdk.ml.models.loaders.FileOnnxLoader
-import com.fpf.smartscansdk.ml.models.loaders.ResourceOnnxLoader
+import com.fpf.smartscansdk.ml.models.loaders.FileLoader
+import com.fpf.smartscansdk.ml.models.loaders.ResourceLoader
 import kotlinx.coroutines.*
 import java.nio.LongBuffer
 import kotlin.collections.toLongArray
@@ -23,8 +23,8 @@ class MiniLMTextEmbedder(
     ) : TextEmbeddingProvider {
 
     private val model: OnnxModel = when(modelSource) {
-        is ModelAssetSource.Resource -> OnnxModel(ResourceOnnxLoader(context.resources, modelSource.resId))
-        is ModelAssetSource.LocalFile -> OnnxModel(FileOnnxLoader(modelSource.file))
+        is ModelAssetSource.Resource -> OnnxModel(ResourceLoader(context.resources, modelSource.resId))
+        is ModelAssetSource.LocalFile -> OnnxModel(FileLoader(modelSource.file))
     }
 
     private val tokenizer: MiniLmTokenizer = when {

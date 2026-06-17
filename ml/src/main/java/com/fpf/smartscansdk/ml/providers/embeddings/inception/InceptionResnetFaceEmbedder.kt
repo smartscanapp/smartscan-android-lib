@@ -9,9 +9,9 @@ import com.fpf.smartscansdk.core.embeddings.ImageEmbeddingProvider
 import com.fpf.smartscansdk.core.embeddings.normalizeL2
 import com.fpf.smartscansdk.core.media.centerCrop
 import com.fpf.smartscansdk.ml.models.ModelAssetSource
-import com.fpf.smartscansdk.ml.models.loaders.FileOnnxLoader
+import com.fpf.smartscansdk.ml.models.loaders.FileLoader
 import com.fpf.smartscansdk.ml.models.OnnxModel
-import com.fpf.smartscansdk.ml.models.loaders.ResourceOnnxLoader
+import com.fpf.smartscansdk.ml.models.loaders.ResourceLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.nio.FloatBuffer
@@ -21,8 +21,8 @@ class InceptionResnetFaceEmbedder(
     modelSource: ModelAssetSource,
 ) : ImageEmbeddingProvider {
     private val model: OnnxModel = when(modelSource) {
-        is ModelAssetSource.Resource -> OnnxModel(ResourceOnnxLoader(context.resources, modelSource.resId))
-        is ModelAssetSource.LocalFile -> OnnxModel(FileOnnxLoader(modelSource.file))
+        is ModelAssetSource.Resource -> OnnxModel(ResourceLoader(context.resources, modelSource.resId))
+        is ModelAssetSource.LocalFile -> OnnxModel(FileLoader(modelSource.file))
     }
 
     companion object {

@@ -6,8 +6,8 @@ import android.graphics.Bitmap
 import com.fpf.smartscansdk.core.copyFloatBuffer
 import com.fpf.smartscansdk.ml.models.ModelAssetSource
 import com.fpf.smartscansdk.ml.models.OnnxModel
-import com.fpf.smartscansdk.ml.models.loaders.FileOnnxLoader
-import com.fpf.smartscansdk.ml.models.loaders.ResourceOnnxLoader
+import com.fpf.smartscansdk.ml.models.loaders.FileLoader
+import com.fpf.smartscansdk.ml.models.loaders.ResourceLoader
 import com.fpf.smartscansdk.ml.providers.ocr.postprocess.CTCDecoder
 import com.fpf.smartscansdk.ml.providers.ocr.preprocess.RecPreprocessor
 import java.nio.FloatBuffer
@@ -27,8 +27,8 @@ internal class RecognitionEngine(
     )
 
     private val model: OnnxModel = when(modelSource) {
-        is ModelAssetSource.Resource -> OnnxModel(ResourceOnnxLoader(context.resources, modelSource.resId))
-        is ModelAssetSource.LocalFile -> OnnxModel(FileOnnxLoader(modelSource.file))
+        is ModelAssetSource.Resource -> OnnxModel(ResourceLoader(context.resources, modelSource.resId))
+        is ModelAssetSource.LocalFile -> OnnxModel(FileLoader(modelSource.file))
     }
 
     suspend fun initialize() = model.loadModel()
