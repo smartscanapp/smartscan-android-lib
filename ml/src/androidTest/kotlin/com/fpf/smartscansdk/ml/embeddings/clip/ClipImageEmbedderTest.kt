@@ -1,4 +1,4 @@
-package com.fpf.smartscansdk.ml.providers.embeddings.clip
+package com.fpf.smartscansdk.ml.embeddings.clip
 
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment

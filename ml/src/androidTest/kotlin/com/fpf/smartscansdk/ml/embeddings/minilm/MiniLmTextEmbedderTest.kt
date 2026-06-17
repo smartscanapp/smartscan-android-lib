@@ -1,4 +1,4 @@
-package com.fpf.smartscansdk.ml.providers.embeddings.minilm
+package com.fpf.smartscansdk.ml.embeddings.minilm
 
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
