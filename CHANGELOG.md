@@ -1,3 +1,14 @@
+## v2.1.0 - 19/06/2026
+
+### Added
+* Added PaddleOCR integration
+
+### Changed
+* Moved embeddings and detector packages to root of ml package (breaking)
+* Updated BaseModel interface to include both model input tensor type and model output type (breaking)
+
+___
+
 ## v2.0.3 - 11/06/2026
 
 ### Changed
