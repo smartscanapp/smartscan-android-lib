@@ -18,7 +18,7 @@ class FileEmbeddingStore(
         const val TAG = "FileEmbeddingStore"
     }
 
-    private val codec = FileEmbeddingCodec(
+    private val codec = F32EmbeddingCodec(
         embeddingDimension = embeddingDimension,
         recordSize = (8 + 8) + embeddingDimension * 4,
         headerSize = 4

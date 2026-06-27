@@ -13,7 +13,7 @@ import java.nio.ByteOrder
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
-internal class FileEmbeddingCodec(
+internal class F32EmbeddingCodec(
     private val embeddingDimension: Int,
     private val recordSize: Int,
     private val headerSize: Int,
