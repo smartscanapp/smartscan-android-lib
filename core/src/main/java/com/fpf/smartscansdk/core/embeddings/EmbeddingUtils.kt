@@ -3,23 +3,55 @@ package com.fpf.smartscansdk.core.embeddings
 import android.app.Application
 import android.content.Context
 import com.fpf.smartscansdk.core.processors.BatchProcessor
+import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
+private const val QUANT_SCALE: Int = 127
 infix fun FloatArray.dot(other: FloatArray) = foldIndexed(0.0) { i, acc, cur -> acc + cur * other[i] }.toFloat()
+infix fun ByteArray.dot(other: ByteArray) = foldIndexed(0.0) { i, acc, cur -> acc + cur * other[i] }.toFloat() / (QUANT_SCALE * QUANT_SCALE).toFloat()
 
-fun normalizeL2(inputArray: FloatArray): FloatArray {
+fun FloatArray.quantInt8(): ByteArray {
+    val q = ByteArray(size)
+    for (i in indices) {
+        q[i] = (this[i] * QUANT_SCALE.toFloat()).roundToInt().toByte()
+    }
+    return q
+}
+
+fun ByteArray.dequantInt8(): FloatArray {
+    val x = FloatArray(size)
+    for (i in indices) {
+        x[i] = this[i].toFloat() / QUANT_SCALE.toFloat()
+    }
+    return x
+}
+
+fun normalizeL2(rawEmbed: FloatArray): FloatArray {
+    var norm = 0.0f
+    for (i in rawEmbed.indices) {
+        norm += rawEmbed[i] * rawEmbed[i]
+    }
+    norm = sqrt(norm)
+    return rawEmbed.map { it / norm }.toFloatArray()
+}
+
+fun normalizeL2(rawEmbed: ByteArray): ByteArray {
+    val inputArray = rawEmbed.dequantInt8()
     var norm = 0.0f
     for (i in inputArray.indices) {
         norm += inputArray[i] * inputArray[i]
     }
     norm = sqrt(norm)
-    return inputArray.map { it / norm }.toFloatArray()
+    return inputArray.map { it / norm }.toFloatArray().quantInt8()
 }
 
 fun getSimilarities(embedding: FloatArray, comparisonEmbeddings: List<FloatArray>): List<Float> {
     return comparisonEmbeddings.map { embedding dot it }
 }
 
+fun getSimilarities(embedding: ByteArray, comparisonEmbeddings: List<ByteArray>): List<Float> {
+    return comparisonEmbeddings.map { embedding dot it }
+}
 fun getTopN(similarities: List<Float>, n: Int, threshold: Float = 0f): List<Int> {
     return similarities.indices.filter { similarities[it] >= threshold }
         .sortedByDescending { similarities[it] }
@@ -32,6 +64,17 @@ fun generatePrototypeEmbedding(embeddings: List<FloatArray>): FloatArray{
         for (emb in embeddings) for (i in emb.indices) sum[i] += emb[i]
         return normalizeL2(FloatArray(embeddingLength) { i -> sum[i] / embeddings.size })
     }
+
+fun generatePrototypeEmbedding(embeddings: List<ByteArray>): ByteArray{
+    val embeddingLength = embeddings[0].size
+    val sum = FloatArray(embeddingLength)
+    for (emb in embeddings){
+        val dequantEmb = emb.dequantInt8()
+        for (i in dequantEmb.indices) sum[i] += dequantEmb[i]
+    }
+    return normalizeL2(FloatArray(embeddingLength) { i -> sum[i] / embeddings.size }).quantInt8()
+}
+
 
 // updatedPrototype = ((N * currentPrototype) + sum(newEmbedding)) / (N + newN)
 fun updatePrototypeEmbedding(embedding: FloatArray, newEmbeddings: List<FloatArray>, currentN: Int): Pair<FloatArray, Int> {
@@ -46,9 +89,31 @@ fun updatePrototypeEmbedding(embedding: FloatArray, newEmbeddings: List<FloatArr
     return Pair(normalizeL2(updatedPrototype), updatedN)
 }
 
+fun updatePrototypeEmbedding(embedding: ByteArray, newEmbeddings: List<ByteArray>, currentN: Int): Pair<ByteArray, Int> {
+    val updatedN = currentN + newEmbeddings.size
+    val dequantEmb = embedding.dequantInt8()
+    val sumNew = sumEmbeddings(newEmbeddings)
+    val updatedPrototype = FloatArray(dequantEmb.size)
+    if(currentN > 0){
+        for(i in updatedPrototype.indices) updatedPrototype[i] = currentN.toFloat() * dequantEmb[i]
+    }
+    for (i in updatedPrototype.indices) updatedPrototype[i] += sumNew[i]
+    for (i in updatedPrototype.indices) updatedPrototype[i] /= updatedN.toFloat()
+    return Pair(normalizeL2(updatedPrototype).quantInt8(), updatedN)
+}
+
 fun flattenEmbeddings(embeddings: List<FloatArray>, embeddingDim: Int): FloatArray {
     val batchSize = embeddings.size
     val flattened = FloatArray(batchSize * embeddingDim)
+    for (i in embeddings.indices) {
+        System.arraycopy(embeddings[i], 0, flattened, i * embeddingDim, embeddingDim)
+    }
+    return flattened
+}
+
+fun flattenEmbeddings(embeddings: List<ByteArray>, embeddingDim: Int): ByteArray {
+    val batchSize = embeddings.size
+    val flattened = ByteArray(batchSize * embeddingDim)
     for (i in embeddings.indices) {
         System.arraycopy(embeddings[i], 0, flattened, i * embeddingDim, embeddingDim)
     }
@@ -66,11 +131,33 @@ fun unflattenEmbeddings(flattened: FloatArray, embeddingDim: Int): List<FloatArr
     return embeddings
 }
 
+fun unflattenEmbeddings(flattened: ByteArray, embeddingDim: Int): List<ByteArray> {
+    val batchSize = flattened.size / embeddingDim
+    val embeddings = mutableListOf<ByteArray>()
+    for (i in 0 until batchSize) {
+        val embedding = ByteArray(embeddingDim)
+        System.arraycopy(flattened, i * embeddingDim, embedding, 0, embeddingDim)
+        embeddings.add(embedding)
+    }
+    return embeddings
+}
+
 fun sumEmbeddings(embeddings: List<FloatArray>): FloatArray {
     val sum = FloatArray(embeddings[0].size)
     for (emb in embeddings) {
         for (i in emb.indices) {
             sum[i] += emb[i]
+        }
+    }
+    return sum
+}
+
+fun sumEmbeddings(embeddings: List<ByteArray>): FloatArray {
+    val sum = FloatArray(embeddings[0].size)
+    for (emb in embeddings) {
+        val dequantEmb = emb.dequantInt8()
+        for (i in dequantEmb.indices) {
+            sum[i] += dequantEmb[i]
         }
     }
     return sum
@@ -91,6 +178,5 @@ suspend fun <T>embedBatch(context: Context, embedder: EmbeddingProvider<T>, data
     processor.run(data)
     return allEmbeddings
 }
-
 
 
