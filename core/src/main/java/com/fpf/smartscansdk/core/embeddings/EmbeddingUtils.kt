@@ -142,6 +142,7 @@ fun unflattenEmbeddings(flattened: ByteArray, embeddingDim: Int): List<ByteArray
     return embeddings
 }
 
+@JvmName("sumEmbeddingsFloat")
 fun sumEmbeddings(embeddings: List<FloatArray>): FloatArray {
     val sum = FloatArray(embeddings[0].size)
     for (emb in embeddings) {
@@ -152,6 +153,7 @@ fun sumEmbeddings(embeddings: List<FloatArray>): FloatArray {
     return sum
 }
 
+@JvmName("sumEmbeddingsByte")
 fun sumEmbeddings(embeddings: List<ByteArray>): FloatArray {
     val sum = FloatArray(embeddings[0].size)
     for (emb in embeddings) {
