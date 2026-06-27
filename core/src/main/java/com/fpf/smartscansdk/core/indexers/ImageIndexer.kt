@@ -3,9 +3,11 @@ package com.fpf.smartscansdk.core.indexers
 import android.content.ContentUris
 import android.content.Context
 import android.provider.MediaStore
+import com.fpf.smartscansdk.core.embeddings.Embedding
 import com.fpf.smartscansdk.core.embeddings.StoredEmbedding
 import com.fpf.smartscansdk.core.embeddings.EmbeddingStore
 import com.fpf.smartscansdk.core.embeddings.ImageEmbeddingProvider
+import com.fpf.smartscansdk.core.embeddings.toQInt8
 import com.fpf.smartscansdk.core.media.getBitmapFromUri
 import com.fpf.smartscansdk.core.processors.BatchProcessor
 import com.fpf.smartscansdk.core.processors.ProcessorListener
@@ -22,14 +24,15 @@ class ImageIndexer(
     private val embedder: ImageEmbeddingProvider,
     private val store: EmbeddingStore,
     private val maxImageSize: Int = 225,
+    private val quantize: Boolean = false,
     context: Context,
-    listener: ProcessorListener<Long, Pair<Long, FloatArray>>? = null,
+    listener: ProcessorListener<Long, Pair<Long, Embedding>>? = null,
     memoryOptions: MemoryOptions = MemoryOptions(),
     batchSize: Int = 10,
-    ): BatchProcessor<Long, Pair<Long, FloatArray>>(context, listener, memoryOptions, batchSize){
+    ): BatchProcessor<Long, Pair<Long, Embedding>>(context, listener, memoryOptions, batchSize){
 
 
-    override suspend fun onBatchComplete(context: Context, batch: List<Pair<Long, FloatArray>>) {
+    override suspend fun onBatchComplete(context: Context, batch: List<Pair<Long, Embedding>>) {
         val imageIdToDateMap = getImageToDateMap(context, batch.map { it.first })
         val embedsToStore = batch.map{
             val date = imageIdToDateMap[it.first]?: System.currentTimeMillis()
@@ -39,10 +42,11 @@ class ImageIndexer(
         listener?.onBatchComplete(context, batch)
     }
 
-    override suspend fun onProcess(context: Context, item: Long): Pair<Long, FloatArray> {
+    override suspend fun onProcess(context: Context, item: Long): Pair<Long, Embedding> {
         val contentUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, item)
         val bitmap = getBitmapFromUri(context, contentUri, maxImageSize)
-        val embedding = withContext(NonCancellable) { embedder.embed(bitmap) }
+        val output = withContext(NonCancellable) { embedder.embed(bitmap) }
+        val embedding = if(quantize) Embedding.QInt8(output.toQInt8()) else Embedding.F32(output)
         return Pair(item, embedding)
     }
 
