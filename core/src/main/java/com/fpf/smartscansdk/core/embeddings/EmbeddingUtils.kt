@@ -10,7 +10,7 @@ private const val QUANT_SCALE: Int = 127
 infix fun FloatArray.dot(other: FloatArray) = foldIndexed(0.0) { i, acc, cur -> acc + cur * other[i] }.toFloat()
 infix fun ByteArray.dot(other: ByteArray) = foldIndexed(0.0) { i, acc, cur -> acc + cur * other[i] }.toFloat() / (QUANT_SCALE * QUANT_SCALE).toFloat()
 
-fun FloatArray.quantInt8(): ByteArray {
+fun FloatArray.toQInt8(): ByteArray {
     val q = ByteArray(size)
     for (i in indices) {
         q[i] = (this[i] * QUANT_SCALE.toFloat()).roundToInt().toByte()
@@ -18,7 +18,7 @@ fun FloatArray.quantInt8(): ByteArray {
     return q
 }
 
-fun ByteArray.dequantInt8(): FloatArray {
+fun ByteArray.toF32(): FloatArray {
     val x = FloatArray(size)
     for (i in indices) {
         x[i] = this[i].toFloat() / QUANT_SCALE.toFloat()
@@ -36,13 +36,13 @@ fun normalizeL2(rawEmbed: FloatArray): FloatArray {
 }
 
 fun normalizeL2(rawEmbed: ByteArray): ByteArray {
-    val inputArray = rawEmbed.dequantInt8()
+    val inputArray = rawEmbed.toF32()
     var norm = 0.0f
     for (i in inputArray.indices) {
         norm += inputArray[i] * inputArray[i]
     }
     norm = sqrt(norm)
-    return inputArray.map { it / norm }.toFloatArray().quantInt8()
+    return inputArray.map { it / norm }.toFloatArray().toQInt8()
 }
 
 fun getSimilarities(embedding: FloatArray, comparisonEmbeddings: List<FloatArray>): List<Float> {
@@ -69,10 +69,10 @@ fun generatePrototypeEmbedding(embeddings: List<ByteArray>): ByteArray{
     val embeddingLength = embeddings[0].size
     val sum = FloatArray(embeddingLength)
     for (emb in embeddings){
-        val dequantEmb = emb.dequantInt8()
+        val dequantEmb = emb.toF32()
         for (i in dequantEmb.indices) sum[i] += dequantEmb[i]
     }
-    return normalizeL2(FloatArray(embeddingLength) { i -> sum[i] / embeddings.size }).quantInt8()
+    return normalizeL2(FloatArray(embeddingLength) { i -> sum[i] / embeddings.size }).toQInt8()
 }
 
 
@@ -91,7 +91,7 @@ fun updatePrototypeEmbedding(embedding: FloatArray, newEmbeddings: List<FloatArr
 
 fun updatePrototypeEmbedding(embedding: ByteArray, newEmbeddings: List<ByteArray>, currentN: Int): Pair<ByteArray, Int> {
     val updatedN = currentN + newEmbeddings.size
-    val dequantEmb = embedding.dequantInt8()
+    val dequantEmb = embedding.toF32()
     val sumNew = sumEmbeddings(newEmbeddings)
     val updatedPrototype = FloatArray(dequantEmb.size)
     if(currentN > 0){
@@ -99,7 +99,7 @@ fun updatePrototypeEmbedding(embedding: ByteArray, newEmbeddings: List<ByteArray
     }
     for (i in updatedPrototype.indices) updatedPrototype[i] += sumNew[i]
     for (i in updatedPrototype.indices) updatedPrototype[i] /= updatedN.toFloat()
-    return Pair(normalizeL2(updatedPrototype).quantInt8(), updatedN)
+    return Pair(normalizeL2(updatedPrototype).toQInt8(), updatedN)
 }
 
 fun flattenEmbeddings(embeddings: List<FloatArray>, embeddingDim: Int): FloatArray {
@@ -155,7 +155,7 @@ fun sumEmbeddings(embeddings: List<FloatArray>): FloatArray {
 fun sumEmbeddings(embeddings: List<ByteArray>): FloatArray {
     val sum = FloatArray(embeddings[0].size)
     for (emb in embeddings) {
-        val dequantEmb = emb.dequantInt8()
+        val dequantEmb = emb.toF32()
         for (i in dequantEmb.indices) {
             sum[i] += dequantEmb[i]
         }
