@@ -11,6 +11,7 @@ import kotlin.collections.map
 class FileEmbeddingStore(
     private val file: File,
     private val embeddingDimension: Int,
+    private val quantize: Boolean = false
 ) :
     EmbeddingStore {
 
@@ -18,11 +19,17 @@ class FileEmbeddingStore(
         const val TAG = "FileEmbeddingStore"
     }
 
-    private val codec = F32EmbeddingCodec(
-        embeddingDimension = embeddingDimension,
-        recordSize = (8 + 8) + embeddingDimension * 4,
-        headerSize = 4
-    )
+    private val codec = if(quantize){
+        QInt8EmbeddingCodec(
+            embeddingDimension = embeddingDimension,
+            headerSize = 4
+        )
+    }else{
+        F32EmbeddingCodec(
+            embeddingDimension = embeddingDimension,
+            headerSize = 4
+        )
+    }
     private val fileMutex = Mutex()
 
     private var cache: LinkedHashMap<Long, StoredEmbedding> = LinkedHashMap() // initialised in get and only updated in save
@@ -123,7 +130,7 @@ class FileEmbeddingStore(
         }
     }
 
-    override suspend fun query(embedding: FloatArray, topK: Int, threshold: Float, ids: Set<Long>, startDate: Long?, endDate: Long?, includeSims: Boolean): QueryResult {
+    override suspend fun query(embedding: Embedding, topK: Int, threshold: Float, ids: Set<Long>, startDate: Long?, endDate: Long?, includeSims: Boolean): QueryResult {
         val storedEmbeddings = get().asSequence()
             .let { seq ->
                 if (ids.isNotEmpty()) seq.filter { it.id in ids } else seq
@@ -138,7 +145,25 @@ class FileEmbeddingStore(
 
         if (storedEmbeddings.isEmpty()) return QueryResult()
 
-        val similarities = getSimilarities(embedding, storedEmbeddings.map { it.embedding })
+        if (quantize){
+            require(embedding is Embedding.QInt8){"Embedding must be of type QInt8"}
+            require(storedEmbeddings[0].embedding is Embedding.QInt8){"Mismatch between query embedding and stored embeddings. Both must be of type QInt8"}
+
+        }else{
+            require(embedding is Embedding.F32){"Embedding must be of type F32"}
+            require(storedEmbeddings[0].embedding is Embedding.F32){"Mismatch between query embedding and stored embeddings. Both must be of type F32"}
+        }
+        val similarities = when (embedding) {
+            is Embedding.F32 -> {
+                val stored = storedEmbeddings.map { (it.embedding as Embedding.F32).vector }
+                getSimilarities(embedding.vector, stored)
+            }
+
+            is Embedding.QInt8 -> {
+                val stored = storedEmbeddings.map { (it.embedding as Embedding.QInt8).vector }
+                getSimilarities(embedding.vector, stored)
+            }
+        }
         val resultIndices = getTopN(similarities, topK, threshold)
 
         return if (resultIndices.isEmpty()) {
@@ -156,11 +181,16 @@ class FileEmbeddingStore(
         idToFileOffsetIndex.clear()
     }
 
-    private fun validateEmbeds(embeddings: List<StoredEmbedding>){
+    private fun validateEmbeds(embeddings: List<StoredEmbedding>) {
         for (embedding in embeddings) {
-            if (embedding.embedding.size != embeddingDimension) {
+            val size = when (val e = embedding.embedding) {
+                is Embedding.F32 -> e.vector.size
+                is Embedding.QInt8 -> e.vector.size
+            }
+
+            if (size != embeddingDimension) {
                 throw SmartScanException.InvalidEmbeddingDimension(
-                    "Embedding dimension mismatch. Expected $embeddingDimension, got ${embedding.embedding.size}"
+                    "Embedding dimension mismatch. Expected $embeddingDimension, got $size"
                 )
             }
         }

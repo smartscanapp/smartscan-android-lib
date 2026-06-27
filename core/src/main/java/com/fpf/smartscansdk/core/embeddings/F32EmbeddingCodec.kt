@@ -15,9 +15,13 @@ import java.nio.file.StandardCopyOption
 
 internal class F32EmbeddingCodec(
     private val embeddingDimension: Int,
-    private val recordSize: Int,
     private val headerSize: Int,
 ): EmbeddingCodec {
+
+    // Long + Long + FloatArray
+
+    private val recordSize = (8 + 8 )+ embeddingDimension * 4
+
     override suspend fun writeReplace(embeddings: List<StoredEmbedding>, idToFileOffsetIndex: MutableMap<Long, Long>, outputFile: File):Unit = withContext(Dispatchers.IO) {
         val tempFile = File.createTempFile(outputFile.nameWithoutExtension, ".tmp")
 
@@ -40,9 +44,10 @@ internal class F32EmbeddingCodec(
                     .order(ByteOrder.LITTLE_ENDIAN)
 
                 for (embedding in batch) {
+                    require(embedding.embedding is Embedding.F32){"Embedding must be of type F32"}
                     batchBuffer.putLong(embedding.id)
                     batchBuffer.putLong(embedding.date)
-                    for (f in embedding.embedding) {
+                    for (f in embedding.embedding.vector) {
                         batchBuffer.putFloat(f)
                     }
                     idToFileOffsetIndex[embedding.id] = offset.toLong()
@@ -91,7 +96,7 @@ internal class F32EmbeddingCodec(
                 fb.get(floats)
                 buffer.position(buffer.position() + embeddingDimension * 4)
 
-                cacheMap[id] = StoredEmbedding(id, date, floats)
+                cacheMap[id] = StoredEmbedding(id, date, Embedding.F32(floats))
                 idxMap[id] = offset
                 offset += recordSize.toLong()
             }
@@ -138,13 +143,14 @@ internal class F32EmbeddingCodec(
             }
 
             for (embedding in embeddings) {
+                require(embedding.embedding is Embedding.F32){"Embedding must be of type F32"}
                 if (writeBuffer.remaining() < recordSize) {
                     flushBuffer()
                 }
 
                 writeBuffer.putLong(embedding.id)
                 writeBuffer.putLong(embedding.date)
-                for (f in embedding.embedding) writeBuffer.putFloat(f)
+                for (f in embedding.embedding.vector) writeBuffer.putFloat(f)
             }
 
             if (writeBuffer.position() > 0) {
@@ -182,11 +188,12 @@ internal class F32EmbeddingCodec(
             val channel = raf.channel
 
             for (emb in embeddings) {
+                require(emb.embedding is Embedding.F32){"Embedding must be of type F32"}
                 val offset = idToFileOffsetIndex[emb.id] ?: continue
                 val buf = ByteBuffer.allocate(recordSize).order(ByteOrder.LITTLE_ENDIAN)
                 buf.putLong(emb.id)
                 buf.putLong(emb.date)
-                for (f in emb.embedding) buf.putFloat(f)
+                for (f in emb.embedding.vector) buf.putFloat(f)
                 buf.flip()
 
                 channel.position(offset)
