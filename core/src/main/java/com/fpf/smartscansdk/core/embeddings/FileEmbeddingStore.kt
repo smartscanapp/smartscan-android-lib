@@ -6,14 +6,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
-import java.io.FileInputStream
-import java.io.FileOutputStream
-import java.io.RandomAccessFile
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.nio.channels.FileChannel
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 import kotlin.collections.map
 
 class FileEmbeddingStore(
@@ -26,106 +18,29 @@ class FileEmbeddingStore(
         const val TAG = "FileEmbeddingStore"
     }
 
+    private val codec = FileEmbeddingCodec(
+        embeddingDimension = embeddingDimension,
+        recordSize = (8 + 8) + embeddingDimension * 4,
+        headerSize = 4
+    )
     private val fileMutex = Mutex()
 
     private var cache: LinkedHashMap<Long, StoredEmbedding> = LinkedHashMap() // initialised in get and only updated in save
     private var idToFileOffsetIndex: MutableMap<Long, Long> = mutableMapOf() // id -> file offset
 
     override val exists: Boolean get() = file.exists()
-    private val recordSize = (8 + 8) + embeddingDimension * 4
-    private val headerSize = 4
 
-
-    // Save to temp file and replace on completion to prevent corrupting embedding store file due to partial writes
     override suspend fun save(): Unit = withContext(Dispatchers.IO) {
         val embeddingsList = get()
         if(embeddingsList.isEmpty()) return@withContext
-
-        val tempFile = File.createTempFile(file.nameWithoutExtension, ".tmp")
-
-        FileOutputStream(tempFile).channel.use { channel ->
-            val header = ByteBuffer.allocate(headerSize).order(ByteOrder.LITTLE_ENDIAN)
-            header.putInt(embeddingsList.size)
-            header.flip()
-            channel.write(header)
-
-            val batchSize = 1000
-            var index = 0
-            var offset = headerSize
-
-            while (index < embeddingsList.size) {
-                val end = minOf(index + batchSize, embeddingsList.size)
-                val batch = embeddingsList.subList(index, end)
-
-                // Allocate a smaller buffer for this batch
-                val batchBuffer = ByteBuffer.allocate(batch.size * recordSize)
-                    .order(ByteOrder.LITTLE_ENDIAN)
-
-                for (embedding in batch) {
-                    if (embedding.embedding.size != embeddingDimension) {
-                        throw SmartScanException.InvalidEmbeddingDimension("Embedding dimension mismatch. Expected $embeddingDimension, got ${embedding.embedding.size}")
-                    }
-                    batchBuffer.putLong(embedding.id)
-                    batchBuffer.putLong(embedding.date)
-                    for (f in embedding.embedding) {
-                        batchBuffer.putFloat(f)
-                    }
-                    idToFileOffsetIndex[embedding.id] = offset.toLong()
-                    offset += recordSize
-                }
-                batchBuffer.flip()
-                channel.write(batchBuffer)
-                index = end
-            }
-        }
-        Files.move(
-            tempFile.toPath(),
-            file.toPath(),
-            StandardCopyOption.REPLACE_EXISTING
-        )
+        codec.writeReplace(embeddingsList, idToFileOffsetIndex, file)
     }
 
     private suspend fun load(): LinkedHashMap<Long, StoredEmbedding> = withContext(Dispatchers.IO) {
-        val map = LinkedHashMap<Long, StoredEmbedding>()
-        val idx = mutableMapOf<Long, Long>()
-
-        if (!file.exists()) return@withContext map
-
-        FileInputStream(file).channel.use { ch ->
-            val size = ch.size()
-            if (size < headerSize) {
-                throw SmartScanException.CorruptedEmbeddingStoreFile("File too small to contain header")
-            }
-
-            val buffer = ch.map(FileChannel.MapMode.READ_ONLY, 0, size).order(ByteOrder.LITTLE_ENDIAN)
-
-            val count = buffer.int
-            val expectedSize = headerSize.toLong() + count.toLong() * recordSize.toLong()
-
-            if (count < 0 || expectedSize > size) {
-                throw SmartScanException.CorruptedEmbeddingStoreFile(
-                    "Corrupt embeddings header: count=$count, fileSize=$size"
-                )
-            }
-
-            var offset = headerSize.toLong()
-
-            repeat(count) {
-                val id = buffer.long
-                val date = buffer.long
-                val floats = FloatArray(embeddingDimension)
-                val fb = buffer.asFloatBuffer()
-                fb.get(floats)
-                buffer.position(buffer.position() + embeddingDimension * 4)
-
-                map[id] = StoredEmbedding(id, date, floats)
-                idx[id] = offset
-                offset += recordSize.toLong()
-            }
-        }
-
-        idToFileOffsetIndex = idx
-        map
+        if (!file.exists()) return@withContext LinkedHashMap()
+        val (embedMap, idxMap) = codec.read(file)
+        idToFileOffsetIndex = idxMap
+        embedMap
     }
 
     override suspend fun get(): List<StoredEmbedding> = fileMutex.withLock {
@@ -151,103 +66,46 @@ class FileEmbeddingStore(
     override suspend fun add(embeddings: List<StoredEmbedding>): Int = fileMutex.withLock {
         withContext(Dispatchers.IO) {
             if (embeddings.isEmpty()) return@withContext 0
+            if (idToFileOffsetIndex.isEmpty()) load()
 
-            if (idToFileOffsetIndex.isEmpty()) {
-                load()
-            }
 
             val filteredNewEmbeddings = embeddings.filterNot { it.id in idToFileOffsetIndex }
             if (filteredNewEmbeddings.isEmpty()) return@withContext 0
 
-            for (embedding in filteredNewEmbeddings) {
-                if (embedding.embedding.size != embeddingDimension) {
-                    throw SmartScanException.InvalidEmbeddingDimension(
-                        "Embedding dimension mismatch. Expected $embeddingDimension, got ${embedding.embedding.size}"
-                    )
-                }
-            }
+            validateEmbeds(filteredNewEmbeddings)
 
-            RandomAccessFile(file, "rw").use { raf ->
-                val channel = raf.channel
+            val added = codec.append(file,  filteredNewEmbeddings, idToFileOffsetIndex)
 
-                val fileExistsAndHasContent = channel.size() >= headerSize.toLong()
-
-                val existingCount = if (fileExistsAndHasContent) {
-                    readAndValidateHeader(channel)
-                } else {
-                    0
-                }
-
-                val newCount = existingCount + filteredNewEmbeddings.size
-
-                // Move to the end (append mode) or start of data section if new file
-                val nextOffset = if (fileExistsAndHasContent) {
-                    channel.size()
-                } else {
-                    headerSize.toLong()
-                }
-
-                channel.position(nextOffset)
-
-                val targetChunkBytes = 4 * 1024 * 1024
-                val chunkCapacity = maxOf(
-                    recordSize,
-                    (targetChunkBytes / recordSize).coerceAtLeast(1) * recordSize
-                )
-                val writeBuffer = ByteBuffer.allocateDirect(chunkCapacity).order(ByteOrder.LITTLE_ENDIAN)
-
-                fun flushBuffer() {
-                    writeBuffer.flip()
-                    while (writeBuffer.hasRemaining()) {
-                        channel.write(writeBuffer)
-                    }
-                    writeBuffer.clear()
-                }
-
+            // Only add items to cache if it's not empty e.g after get() call, to keep it synchronized.
+            // This prevents edge cases that could result in partial cache overwriting on-disk data
+            // It also prevents unnecessarily keeping embeddings in memory
+            if (cache.isNotEmpty()) {
                 for (embedding in filteredNewEmbeddings) {
-                    if (writeBuffer.remaining() < recordSize) {
-                        flushBuffer()
-                    }
-
-                    writeBuffer.putLong(embedding.id)
-                    writeBuffer.putLong(embedding.date)
-                    for (f in embedding.embedding) writeBuffer.putFloat(f)
-                }
-
-                if (writeBuffer.position() > 0) {
-                    flushBuffer()
-                }
-
-                // Write updated count back as little-endian
-                val headerBuf = ByteBuffer.allocate(headerSize).order(ByteOrder.LITTLE_ENDIAN)
-                headerBuf.putInt(newCount)
-                headerBuf.flip()
-                channel.position(0)
-                while (headerBuf.hasRemaining()) {
-                    channel.write(headerBuf)
-                }
-
-                channel.force(false)
-
-                // update in-memory file offset index for the newly appended entry and cache
-                filteredNewEmbeddings.forEachIndexed { index, embedding ->
-                    idToFileOffsetIndex[embedding.id] = nextOffset + (index.toLong() * recordSize)
-                }
-
-                // Only add items to cache if it's not empty e.g after get() call, to keep it synchronized.
-                // This prevents edge cases that could result in partial cache overwriting on-disk data
-                // It also prevents unnecessarily keeping embeddings in memory
-                if (cache.isNotEmpty()) {
-                    for (embedding in filteredNewEmbeddings) {
-                        cache[embedding.id] = embedding
-                    }
+                    cache[embedding.id] = embedding
                 }
             }
-
-            filteredNewEmbeddings.size
+            added
         }
     }
 
+    override suspend fun update(embeddings: List<StoredEmbedding>): Int = fileMutex.withLock {
+        withContext(Dispatchers.IO) {
+            if (embeddings.isEmpty()) return@withContext 0
+
+            if (idToFileOffsetIndex.isEmpty()) load()
+
+            validateEmbeds(embeddings)
+
+            val updated = codec.update(file, embeddings, idToFileOffsetIndex)
+            // Only add items to cache if it's not empty e.g after get() call, to keep it synchronized.
+            // This prevents edge cases that could result in partial cache overwriting on-disk data
+            // It also prevents unnecessarily keeping embeddings in memory
+            if(cache.isNotEmpty()){
+                for(emb in embeddings) cache[emb.id] = emb
+            }
+            updated
+        }
+    }
 
     override suspend fun remove(ids: List<Long>): Int = fileMutex.withLock {
         withContext(Dispatchers.IO) {
@@ -263,11 +121,6 @@ class FileEmbeddingStore(
             }
             removedCount
         }
-    }
-
-    override fun clear(){
-        cache.clear()
-        idToFileOffsetIndex.clear()
     }
 
     override suspend fun query(embedding: FloatArray, topK: Int, threshold: Float, ids: Set<Long>, startDate: Long?, endDate: Long?, includeSims: Boolean): QueryResult {
@@ -298,65 +151,18 @@ class FileEmbeddingStore(
         }
     }
 
-    override suspend fun update(embeddings: List<StoredEmbedding>): Int = fileMutex.withLock {
-        withContext(Dispatchers.IO) {
-            var updatedCount = 0
-            if (embeddings.isEmpty()) return@withContext updatedCount
-
-            if (idToFileOffsetIndex.isEmpty()) {
-                load()
-            }
-
-            RandomAccessFile(file, "rw").use { raf ->
-                val channel = raf.channel
-
-                for (emb in embeddings) {
-                    if (emb.embedding.size != embeddingDimension) {
-                        throw SmartScanException.InvalidEmbeddingDimension(
-                            "Embedding dimension mismatch. Expected $embeddingDimension, got ${emb.embedding.size}"
-                        )
-                    }
-                    val offset = idToFileOffsetIndex[emb.id] ?: continue
-                    val buf = ByteBuffer.allocate(recordSize).order(ByteOrder.LITTLE_ENDIAN)
-                    buf.putLong(emb.id)
-                    buf.putLong(emb.date)
-                    for (f in emb.embedding) buf.putFloat(f)
-                    buf.flip()
-
-                    channel.position(offset)
-                    while (buf.hasRemaining()) {
-                        channel.write(buf)
-                    }
-                    // Only add items to cache if it's not empty e.g after get() call, to keep it synchronized.
-                    // This prevents edge cases that could result in partial cache overwriting on-disk data
-                    // It also prevents unnecessarily keeping embeddings in memory
-                    if(cache.isNotEmpty()){
-                        cache[emb.id] = emb
-                    }
-                    updatedCount++
-                }
-
-                channel.force(false)
-            }
-            updatedCount
-        }
+    override fun clear(){
+        cache.clear()
+        idToFileOffsetIndex.clear()
     }
 
-    private fun readAndValidateHeader(channel: FileChannel): Int{
-        val headerBuf = ByteBuffer.allocate(headerSize).order(ByteOrder.LITTLE_ENDIAN)
-        channel.position(0)
-        val read = channel.read(headerBuf)
-        if (read != headerSize) {
-            throw SmartScanException.CorruptedEmbeddingStoreFile("Failed to read header count")
+    private fun validateEmbeds(embeddings: List<StoredEmbedding>){
+        for (embedding in embeddings) {
+            if (embedding.embedding.size != embeddingDimension) {
+                throw SmartScanException.InvalidEmbeddingDimension(
+                    "Embedding dimension mismatch. Expected $embeddingDimension, got ${embedding.embedding.size}"
+                )
+            }
         }
-        headerBuf.flip()
-
-        val size = channel.size()
-        val existingCount = headerBuf.int
-        val maxCountFromSize = (size / recordSize)
-        if (existingCount !in 0..maxCountFromSize) {
-            throw SmartScanException.CorruptedEmbeddingStoreFile("Corrupt embeddings header: count=$existingCount, fileSize=${size}")
-        }
-        return existingCount
     }
 }
