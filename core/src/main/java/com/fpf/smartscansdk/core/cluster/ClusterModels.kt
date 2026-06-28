@@ -22,8 +22,3 @@ typealias MergeId = Long
 typealias TargetClusters = List<ClusterId>
 typealias ClusterMerges = MutableMap<MergeId, TargetClusters>
 
-data class ClusterResult(
-    val clusters: Map<ClusterId, Cluster>,
-    val assignments: Assignments,
-    val merges: ClusterMerges?,
-)
