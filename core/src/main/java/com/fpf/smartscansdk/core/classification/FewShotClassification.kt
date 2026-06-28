@@ -24,7 +24,7 @@ fun fewShotClassify(embedding: Embedding, classPrototypes: List<Cluster>): Class
         val threshold = classPrototype.metadata.meanSimilarity - classPrototype.metadata.stdSimilarity
         if(sim >= threshold && sim > bestSim){
             bestSim = sim
-            bestPrototype = classPrototype.prototypeId
+            bestPrototype = classPrototype.clusterId
         }
     }
     val classId = bestPrototype

@@ -122,19 +122,19 @@ class IncrementalClusterer(
     }
 
     private fun setAndAssign(itemId: ItemId, embedding: Embedding.F32) {
-        val prototypeId = generateId()
+        val clusterId = generateId()
         val metadata = ClusterMetadata(
             prototypeSize = 1,
             meanSimilarity = defaultThreshold,
             stdSimilarity = 0f,
         )
         val cluster = Cluster(
-            prototypeId = prototypeId,
+            clusterId = clusterId,
             embedding = embedding,
             metadata = metadata,
         )
-        clusters[prototypeId] = cluster
-        assignments[itemId] = prototypeId
+        clusters[clusterId] = cluster
+        assignments[itemId] = clusterId
     }
 
     private fun updateAndAssign(itemId: ItemId, embedding: Embedding.F32, clusterId: ClusterId) {

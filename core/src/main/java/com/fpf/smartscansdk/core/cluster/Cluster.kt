@@ -10,7 +10,7 @@ data class ClusterMetadata(
 )
 
 data class Cluster(
-    val prototypeId: Long,
+    val clusterId: ClusterId,
     var embedding: Embedding,
     var metadata: ClusterMetadata,
 )
