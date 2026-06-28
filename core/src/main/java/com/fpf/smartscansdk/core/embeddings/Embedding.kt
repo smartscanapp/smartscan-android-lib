@@ -11,6 +11,9 @@ sealed interface Embedding {
 
 }
 
+fun Embedding.F32.toQInt8(): Embedding.QInt8 = Embedding.QInt8(this.vector.toQInt8())
+fun Embedding.QInt8.toF32(): Embedding.F32 = Embedding.F32(this.vector.toF32())
+
 data class StoredEmbedding(
     val id: Long,
     val date: Long,
