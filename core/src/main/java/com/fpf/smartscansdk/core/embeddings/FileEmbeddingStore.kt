@@ -153,17 +153,7 @@ class FileEmbeddingStore(
             require(embedding is Embedding.F32){"Embedding must be of type F32"}
             require(storedEmbeddings[0].embedding is Embedding.F32){"Mismatch between query embedding and stored embeddings. Both must be of type F32"}
         }
-        val similarities = when (embedding) {
-            is Embedding.F32 -> {
-                val stored = storedEmbeddings.map { (it.embedding as Embedding.F32).vector }
-                getSimilarities(embedding.vector, stored)
-            }
-
-            is Embedding.QInt8 -> {
-                val stored = storedEmbeddings.map { (it.embedding as Embedding.QInt8).vector }
-                getSimilarities(embedding.vector, stored)
-            }
-        }
+        val similarities = getSimilarities(embedding, storedEmbeddings.map { it.embedding })
         val resultIndices = getTopN(similarities, topK, threshold)
 
         return if (resultIndices.isEmpty()) {
