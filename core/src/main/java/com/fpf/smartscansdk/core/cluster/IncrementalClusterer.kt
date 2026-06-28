@@ -1,7 +1,7 @@
 package com.fpf.smartscansdk.core.cluster
 
+import com.fpf.smartscansdk.core.embeddings.Embedding
 import com.fpf.smartscansdk.core.embeddings.HnswIndex
-import com.fpf.smartscansdk.core.embeddings.StoredEmbedding
 import com.fpf.smartscansdk.core.embeddings.dot
 import com.fpf.smartscansdk.core.embeddings.updatePrototypeEmbedding
 import kotlin.math.exp
@@ -10,6 +10,7 @@ import kotlin.math.pow
 import kotlin.math.sqrt
 
 
+// Explicitly uses embeddings as F32 because the underlying HNSWIndex JNI wrapper requires FloatArray
 class IncrementalClusterer(
     existingClusters: Map<ClusterId, Cluster>? = null,
     private val defaultThreshold: Float = 0.3f,
@@ -26,17 +27,16 @@ class IncrementalClusterer(
     private val revIdMap: MutableMap<ItemId, Int> = linkedMapOf()
     private var nextIntId: Int = 0
 
-    fun cluster(items: List<StoredEmbedding>): ClusterResult {
+    fun cluster(items: Map<ItemId, Embedding.F32>): ClusterResult {
         if (items.isEmpty()) return ClusterResult(clusters, assignments, null)
 
-        val allItems: Map<ItemId, FloatArray> = items.associate { it.id to it.embedding }
-        val embedDim = items.first().embedding.size
+        val embedDim = items.values.first().size
         initAnn(embedDim)
 
-        val minClusterSize = computeMinClusterSize(allItems.size)
+        val minClusterSize = computeMinClusterSize(items.size)
 
-        for (itemId in allItems.keys) {
-            val emb = allItems[itemId] ?: continue
+        for (itemId in items.keys) {
+            val emb = items[itemId] ?: continue
 
             if (clusters.isEmpty()) {
                 setAndAssign(itemId, emb)
@@ -47,7 +47,11 @@ class IncrementalClusterer(
             // Query ANN
             val nnIds = queryAnn(emb)
             val clusterIds = clusters.keys.toList()
-            val cosSims = clusterIds.map { cid -> emb dot clusters[cid]!!.embedding }.toFloatArray()
+            val cosSims = clusterIds.map { cid ->
+                val cluster = clusters[cid]!!
+                require(cluster.embedding is Embedding.F32) {"Cluster embedding must be of type F32"}
+                emb.vector dot (cluster.embedding as Embedding.F32).vector
+            }.toFloatArray()
             val bestIdx = cosSims.indices.maxBy { cosSims[it] }
             val bestCid = clusterIds[bestIdx]
             val bestSim = cosSims[bestIdx]
@@ -65,8 +69,6 @@ class IncrementalClusterer(
 
             addToAnn(itemId, emb)
         }
-
-//        removeSingletons()
 
         val (avgCohesion, _, avgStd) = computeAverageClusterStats()
         val mergeThreshold = max(defaultThreshold, avgCohesion - avgStd)
@@ -92,17 +94,17 @@ class IncrementalClusterer(
         }
     }
 
-    private fun addToAnn(itemId: ItemId, embedding: FloatArray) {
-        annIndex.add(nextIntId, embedding)
+    private fun addToAnn(itemId: ItemId, embedding: Embedding.F32) {
+        annIndex.add(nextIntId, embedding.vector)
         idMap[nextIntId] = itemId
         revIdMap[itemId] = nextIntId
         nextIntId++
     }
 
-    private fun queryAnn(embedding: FloatArray): List<ItemId> {
+    private fun queryAnn(embedding: Embedding.F32): List<ItemId> {
         if (!annInitialized || nextIntId == 0) return emptyList()
         val topKQuery = minOf(topK, nextIntId)
-        val nnIntIds = annIndex.query(embedding, topKQuery)
+        val nnIntIds = annIndex.query(embedding.vector, topKQuery)
         return nnIntIds.mapNotNull { idMap[it] }
     }
 
@@ -118,7 +120,7 @@ class IncrementalClusterer(
         return adaptiveThreshold
     }
 
-    private fun setAndAssign(itemId: ItemId, embedding: FloatArray) {
+    private fun setAndAssign(itemId: ItemId, embedding: Embedding.F32) {
         val prototypeId = generateId()
         val metadata = ClusterMetadata(
             prototypeSize = 1,
@@ -134,45 +136,49 @@ class IncrementalClusterer(
         assignments[itemId] = prototypeId
     }
 
-    private fun updateAndAssign(itemId: ItemId, embedding: FloatArray, clusterId: ClusterId) {
+    private fun updateAndAssign(itemId: ItemId, embedding: Embedding.F32, clusterId: ClusterId) {
         val cluster = clusters[clusterId] ?: return
+        require(cluster.embedding is Embedding.F32) {"Cluster embedding must be of type F32"}
         val oldSize = cluster.metadata.prototypeSize
         val oldMeta = cluster.metadata
-        val (newEmbedding, updatedN) = updatePrototypeEmbedding(cluster.embedding, listOf(embedding), oldSize)
-        val simNew = newEmbedding dot embedding
+        val (newEmbedding, updatedN) = updatePrototypeEmbedding((cluster.embedding as Embedding.F32).vector, listOf(embedding.vector), oldSize)
+        val simNew = newEmbedding dot embedding.vector
         val newMean = if (oldSize >= 1) ((oldMeta.meanSimilarity * oldSize + simNew) / (oldSize + 1)) else simNew
         val newStd = if (oldSize > 1) sqrt((((oldSize - 1) * oldMeta.stdSimilarity.pow(2) + (simNew - oldMeta.meanSimilarity) * (simNew - newMean)) / oldSize).toDouble()).toFloat() else 0f
 
-        cluster.embedding = newEmbedding
+        cluster.embedding = Embedding.F32(newEmbedding)
         cluster.metadata.prototypeSize = updatedN
         cluster.metadata.meanSimilarity = newMean
         cluster.metadata.stdSimilarity = newStd
         assignments[itemId] = clusterId
     }
 
-    private fun assignByVotes(emb: FloatArray, avgCohesion: Float, minClusterSize: Int, nnIds: List<ItemId>): ClusterId? {
+    private fun assignByVotes(emb: Embedding.F32, avgCohesion: Float, minClusterSize: Int, nnIds: List<ItemId>): ClusterId? {
         val (voteCounts, voteSims) = tallyVotes(nnIds, emb)
         if (voteCounts.isEmpty()) return null
 
         val votedCid = selectTopCluster(voteCounts, voteSims)
         val votedCluster = clusters[votedCid] ?: return null
+        require(votedCluster.embedding is Embedding.F32) {"Cluster embedding must be of type F32"}
+
         val nVotes = voteCounts[votedCid] ?: 0
         val requiredVotes = topK / 2
         if (nVotes < requiredVotes) return null
 
-        val simToVoted = emb dot votedCluster.embedding
+        val simToVoted = emb.vector dot (votedCluster.embedding as Embedding.F32).vector
         val votedThreshold = getThreshold(votedCluster, avgCohesion, minClusterSize)
         return if (simToVoted >= votedThreshold) votedCid else null
     }
 
-    private fun tallyVotes(neighbourIds: List<ItemId>, embedding: FloatArray): Pair<MutableMap<ClusterId, Int>, MutableMap<ClusterId, MutableList<Float>>> {
+    private fun tallyVotes(neighbourIds: List<ItemId>, embedding: Embedding.F32): Pair<MutableMap<ClusterId, Int>, MutableMap<ClusterId, MutableList<Float>>> {
         val voteCounts: MutableMap<ClusterId, Int> = linkedMapOf()
         val voteSims: MutableMap<ClusterId, MutableList<Float>> = linkedMapOf()
         for (nid in neighbourIds) {
             val cid = assignments[nid] ?: continue
             val cluster = clusters[cid] ?: continue
+            require(cluster.embedding is Embedding.F32) {"Cluster embedding must be of type F32"}
             voteCounts[cid] = (voteCounts[cid] ?: 0) + 1
-            voteSims.getOrPut(cid) { mutableListOf() }.add(embedding dot cluster.embedding)
+            voteSims.getOrPut(cid) { mutableListOf() }.add(embedding.vector dot (cluster.embedding as Embedding.F32).vector)
         }
         return voteCounts to voteSims
     }
@@ -208,13 +214,5 @@ class IncrementalClusterer(
         val avgClusterSize = if (clusterSizes.isNotEmpty()) clusterSizes.average().toFloat() else 0f
         val avgStd = if (stds.isNotEmpty()) stds.average().toFloat() else 0f
         return Triple(avgCohesion, avgClusterSize, avgStd)
-    }
-
-    private fun removeSingletons() {
-        val singletonItems = assignments.filter { (_, cid) -> clusters[cid]?.metadata?.prototypeSize == 1 }
-        for ((itemId, cid) in singletonItems) {
-            clusters.remove(cid)
-            assignments.remove(itemId)
-        }
     }
 }
