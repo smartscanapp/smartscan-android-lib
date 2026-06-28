@@ -1,10 +1,8 @@
 package com.fpf.smartscansdk.core.cluster
 
 import com.fpf.smartscansdk.core.embeddings.Embedding
-import com.fpf.smartscansdk.core.embeddings.generatePrototypeEmbedding
 import com.fpf.smartscansdk.core.embeddings.getSimilarities
 import com.fpf.smartscansdk.core.embeddings.getTopN
-import kotlin.math.sqrt
 
 fun mergeSimilarClusters(clusterPrototypes: Map<ClusterId, Cluster>, mergeThreshold: Float = 0.9f, ): ClusterMerges {
     val clusterMerges: ClusterMerges = linkedMapOf()
@@ -27,29 +25,3 @@ fun mergeSimilarClusters(clusterPrototypes: Map<ClusterId, Cluster>, mergeThresh
     return clusterMerges
 }
 
-@JvmName("computeClusterMetricsFloat")
-fun computeClusterMetrics(embeddings: List<FloatArray> ): Triple<FloatArray, Float, Float>{
-    val prototypeEmbedding = generatePrototypeEmbedding(embeddings)
-    val sims = getSimilarities(prototypeEmbedding, embeddings)
-    val meanSim = sims.average().toFloat()
-    val stdSim = sqrt(sims.map { (it - meanSim) * (it - meanSim) }.average()).toFloat()
-    return Triple(prototypeEmbedding, meanSim, stdSim)
-}
-
-@JvmName("computeClusterMetricsByte")
-fun computeClusterMetrics(embeddings: List<ByteArray> ): Triple<ByteArray, Float, Float>{
-    val prototypeEmbedding = generatePrototypeEmbedding(embeddings)
-    val sims = getSimilarities(prototypeEmbedding, embeddings)
-    val meanSim = sims.average().toFloat()
-    val stdSim = sqrt(sims.map { (it - meanSim) * (it - meanSim) }.average()).toFloat()
-    return Triple(prototypeEmbedding, meanSim, stdSim)
-}
-
-@JvmName("computeClusterMetrics")
-fun computeClusterMetrics(embeddings: List<Embedding> ): Triple<Embedding, Float, Float>{
-    val prototypeEmbedding = generatePrototypeEmbedding(embeddings)
-    val sims = getSimilarities(prototypeEmbedding, embeddings)
-    val meanSim = sims.average().toFloat()
-    val stdSim = sqrt(sims.map { (it - meanSim) * (it - meanSim) }.average()).toFloat()
-    return Triple(prototypeEmbedding, meanSim, stdSim)
-}
