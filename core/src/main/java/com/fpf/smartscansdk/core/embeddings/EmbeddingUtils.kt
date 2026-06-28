@@ -52,6 +52,15 @@ fun getSimilarities(embedding: FloatArray, comparisonEmbeddings: List<FloatArray
 fun getSimilarities(embedding: ByteArray, comparisonEmbeddings: List<ByteArray>): List<Float> {
     return comparisonEmbeddings.map { embedding dot it }
 }
+
+fun getSimilarities(embedding: Embedding, comparisonEmbeddings: List<Embedding>): List<Float> {
+    return comparisonEmbeddings.map {
+        when(embedding){
+            is Embedding.F32 -> embedding.vector dot (it as Embedding.F32).vector
+            is Embedding.QInt8 -> embedding.vector dot (it as Embedding.QInt8).vector
+        }
+    }
+}
 fun getTopN(similarities: List<Float>, n: Int, threshold: Float = 0f): List<Int> {
     return similarities.indices.filter { similarities[it] >= threshold }
         .sortedByDescending { similarities[it] }
@@ -75,6 +84,19 @@ fun generatePrototypeEmbedding(embeddings: List<ByteArray>): ByteArray{
     return normalizeL2(FloatArray(embeddingLength) { i -> sum[i] / embeddings.size }).toQInt8()
 }
 
+fun generatePrototypeEmbedding(embeddings: List<Embedding>): Embedding{
+    val embeddingLength = embeddings[0].size
+    val sum = FloatArray(embeddingLength)
+    for (emb in embeddings){
+        val floatArray = emb.toFloatArray()
+        for (i in floatArray.indices) sum[i] += floatArray[i]
+    }
+    val norm = normalizeL2(FloatArray(embeddingLength) { i -> sum[i] / embeddings.size })
+    val isQuant = embeddings.first() is Embedding.QInt8
+    return if(isQuant) Embedding.QInt8(norm.toQInt8()) else Embedding.F32(norm)
+}
+
+
 
 // updatedPrototype = ((N * currentPrototype) + sum(newEmbedding)) / (N + newN)
 fun updatePrototypeEmbedding(embedding: FloatArray, newEmbeddings: List<FloatArray>, currentN: Int): Pair<FloatArray, Int> {
@@ -91,15 +113,32 @@ fun updatePrototypeEmbedding(embedding: FloatArray, newEmbeddings: List<FloatArr
 
 fun updatePrototypeEmbedding(embedding: ByteArray, newEmbeddings: List<ByteArray>, currentN: Int): Pair<ByteArray, Int> {
     val updatedN = currentN + newEmbeddings.size
-    val dequantEmb = embedding.toF32()
+    val embAsFloatArr = embedding.toF32()
     val sumNew = sumEmbeddings(newEmbeddings)
-    val updatedPrototype = FloatArray(dequantEmb.size)
+    val updatedPrototype = FloatArray(embAsFloatArr.size)
     if(currentN > 0){
-        for(i in updatedPrototype.indices) updatedPrototype[i] = currentN.toFloat() * dequantEmb[i]
+        for(i in updatedPrototype.indices) updatedPrototype[i] = currentN.toFloat() * embAsFloatArr[i]
     }
     for (i in updatedPrototype.indices) updatedPrototype[i] += sumNew[i]
     for (i in updatedPrototype.indices) updatedPrototype[i] /= updatedN.toFloat()
     return Pair(normalizeL2(updatedPrototype).toQInt8(), updatedN)
+}
+
+fun updatePrototypeEmbedding(embedding: Embedding, newEmbeddings: List<Embedding>, currentN: Int): Pair<Embedding, Int> {
+    val updatedN = currentN + newEmbeddings.size
+    val sumNew = sumEmbeddings(newEmbeddings)
+    val updatedPrototype = FloatArray(embedding.size)
+    val embAsFloatArr = embedding.toFloatArray()
+
+    if(currentN > 0){
+        for(i in updatedPrototype.indices) updatedPrototype[i] = currentN.toFloat() * embAsFloatArr[i]
+    }
+    for (i in updatedPrototype.indices) updatedPrototype[i] += sumNew[i]
+    for (i in updatedPrototype.indices) updatedPrototype[i] /= updatedN.toFloat()
+    val isQuant = embedding is Embedding.QInt8
+    val norm = normalizeL2(updatedPrototype)
+    val embed =  if(isQuant) Embedding.QInt8(norm.toQInt8()) else Embedding.F32(norm)
+    return Pair(embed, updatedN)
 }
 
 fun flattenEmbeddings(embeddings: List<FloatArray>, embeddingDim: Int): FloatArray {
@@ -157,9 +196,21 @@ fun sumEmbeddings(embeddings: List<FloatArray>): FloatArray {
 fun sumEmbeddings(embeddings: List<ByteArray>): FloatArray {
     val sum = FloatArray(embeddings[0].size)
     for (emb in embeddings) {
-        val dequantEmb = emb.toF32()
-        for (i in dequantEmb.indices) {
-            sum[i] += dequantEmb[i]
+        val floatArray = emb.toF32()
+        for (i in floatArray.indices) {
+            sum[i] += floatArray[i]
+        }
+    }
+    return sum
+}
+
+@JvmName("sumEmbeddings")
+fun sumEmbeddings(embeddings: List<Embedding>): FloatArray {
+    val sum = FloatArray(embeddings[0].size)
+    for (emb in embeddings) {
+        val floatArray = emb.toFloatArray()
+        for (i in floatArray.indices) {
+            sum[i] += floatArray[i]
         }
     }
     return sum
