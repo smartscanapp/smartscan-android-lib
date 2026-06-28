@@ -11,9 +11,9 @@ sealed interface Embedding {
 
 }
 
-fun Embedding.toQInt8Embed(): Embedding.F32 = when(this){
-    is Embedding.F32 -> this
-    is Embedding.QInt8 -> Embedding.F32(this.vector.toF32())
+fun Embedding.toQInt8Embed(): Embedding.QInt8 = when(this){
+    is Embedding.F32 -> Embedding.QInt8(this.vector.toQInt8())
+    is Embedding.QInt8 -> this
 }
 fun Embedding.toF32Embed(): Embedding.F32 = when(this){
     is Embedding.F32 -> this
