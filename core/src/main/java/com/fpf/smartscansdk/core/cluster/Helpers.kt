@@ -27,6 +27,7 @@ fun mergeSimilarClusters(clusterPrototypes: Map<ClusterId, Cluster>, mergeThresh
     return clusterMerges
 }
 
+@JvmName("computeClusterMetricsFloat")
 fun computeClusterMetrics(embeddings: List<FloatArray> ): Triple<FloatArray, Float, Float>{
     val prototypeEmbedding = generatePrototypeEmbedding(embeddings)
     val sims = getSimilarities(prototypeEmbedding, embeddings)
@@ -35,6 +36,7 @@ fun computeClusterMetrics(embeddings: List<FloatArray> ): Triple<FloatArray, Flo
     return Triple(prototypeEmbedding, meanSim, stdSim)
 }
 
+@JvmName("computeClusterMetricsByte")
 fun computeClusterMetrics(embeddings: List<ByteArray> ): Triple<ByteArray, Float, Float>{
     val prototypeEmbedding = generatePrototypeEmbedding(embeddings)
     val sims = getSimilarities(prototypeEmbedding, embeddings)
@@ -43,6 +45,7 @@ fun computeClusterMetrics(embeddings: List<ByteArray> ): Triple<ByteArray, Float
     return Triple(prototypeEmbedding, meanSim, stdSim)
 }
 
+@JvmName("computeClusterMetrics")
 fun computeClusterMetrics(embeddings: List<Embedding> ): Triple<Embedding, Float, Float>{
     val prototypeEmbedding = generatePrototypeEmbedding(embeddings)
     val sims = getSimilarities(prototypeEmbedding, embeddings)
