@@ -1,5 +1,7 @@
 package com.fpf.smartscansdk.core.cluster
 
+import com.fpf.smartscansdk.core.embeddings.Embedding
+
 data class ClusterMetadata(
     var prototypeSize: Int,
     var meanSimilarity: Float = 0f,
@@ -9,7 +11,7 @@ data class ClusterMetadata(
 
 data class Cluster(
     val prototypeId: Long,
-    var embedding: FloatArray,
+    var embedding: Embedding,
     var metadata: ClusterMetadata,
 )
 
