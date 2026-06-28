@@ -14,11 +14,3 @@ data class Cluster(
     var embedding: Embedding,
     var metadata: ClusterMetadata,
 )
-
-typealias ItemId = Long
-typealias ClusterId = Long
-typealias Assignments = MutableMap<ItemId, ClusterId>
-typealias MergeId = Long
-typealias TargetClusters = List<ClusterId>
-typealias ClusterMerges = MutableMap<MergeId, TargetClusters>
-

@@ -18,12 +18,6 @@ class IncrementalClusterer(
     private val topK: Int = 5,
 ) {
 
-    data class ClusterResult(
-        val clusters: Map<ClusterId, Cluster>,
-        val assignments: Assignments,
-        val merges: ClusterMerges?,
-    )
-
     private val clusters: MutableMap<ClusterId, Cluster> = existingClusters?.toMutableMap() ?: linkedMapOf()
     private val assignments: Assignments = linkedMapOf()
 
