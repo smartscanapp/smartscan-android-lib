@@ -18,6 +18,7 @@ import java.io.File
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.math.roundToInt
 import kotlin.random.Random
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
@@ -333,5 +334,32 @@ class FileEmbeddingStoreTest {
     fun `concurrent add calls work`() = runTest {
         testConcurrentAdds(quantize = false)
         testConcurrentAdds(quantize = true)
+    }
+
+    @Test
+    fun `quantized embeddings are x4 smaller`() = runTest {
+        val store = createStore(quantize = false)
+        val quantStore = createStore(quantize = true)
+        val numberItems = 10000
+        val embeds = List(numberItems) { i ->
+            embedding(
+                (i + 1).toLong(),
+                ((i + 1) * 100).toLong(),
+                randomEmbedding(quantize = false)
+            )
+        }
+        store.add(embeds)
+
+        val quantEmbeds = embeds.map {
+            it.copy(
+                embedding = Embedding.QInt8((it.embedding as Embedding.F32).vector.toQInt8())
+            )
+        }
+        quantStore.add(quantEmbeds)
+
+        val embedFile = getEmbedStoreFile(quantize = false)
+        val quantEmbedFile = getEmbedStoreFile(quantize = true)
+        val ratio = embedFile.readBytes().size.toDouble() / quantEmbedFile.readBytes().size.toDouble()
+        assertEquals(4, ratio.roundToInt())
     }
 }
