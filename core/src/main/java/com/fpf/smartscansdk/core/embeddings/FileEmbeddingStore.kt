@@ -79,7 +79,7 @@ class FileEmbeddingStore(
             val filteredNewEmbeddings = embeddings.filterNot { it.id in idToFileOffsetIndex }
             if (filteredNewEmbeddings.isEmpty()) return@withContext 0
 
-            validateEmbeds(filteredNewEmbeddings)
+            validateEmbeds(filteredNewEmbeddings, quantize)
 
             val added = codec.append(file,  filteredNewEmbeddings, idToFileOffsetIndex)
 
@@ -101,7 +101,7 @@ class FileEmbeddingStore(
 
             if (idToFileOffsetIndex.isEmpty()) load()
 
-            validateEmbeds(embeddings)
+            validateEmbeds(embeddings, quantize)
 
             val updated = codec.update(file, embeddings, idToFileOffsetIndex)
             // Only add items to cache if it's not empty e.g after get() call, to keep it synchronized.
@@ -146,12 +146,11 @@ class FileEmbeddingStore(
         if (storedEmbeddings.isEmpty()) return QueryResult()
 
         if (quantize){
-            require(embedding is Embedding.QInt8){"Embedding must be of type QInt8"}
-            require(storedEmbeddings[0].embedding is Embedding.QInt8){"Mismatch between query embedding and stored embeddings. Both must be of type QInt8"}
-
+            if(embedding !is Embedding.QInt8) throw SmartScanException.InvalidEmbeddingType("Embedding must be of type QInt8")
+            if(storedEmbeddings[0].embedding !is Embedding.QInt8) throw SmartScanException.InvalidEmbeddingType("Mismatch between query embedding and stored embeddings. Both must be of type QInt8")
         }else{
-            require(embedding is Embedding.F32){"Embedding must be of type F32"}
-            require(storedEmbeddings[0].embedding is Embedding.F32){"Mismatch between query embedding and stored embeddings. Both must be of type F32"}
+            if(embedding !is Embedding.F32) throw SmartScanException.InvalidEmbeddingType("Embedding must be of type F32")
+            if(storedEmbeddings[0].embedding !is Embedding.F32) throw SmartScanException.InvalidEmbeddingType("Mismatch between query embedding and stored embeddings. Both must be of type F32")
         }
         val similarities = getSimilarities(embedding, storedEmbeddings.map { it.embedding })
         val resultIndices = getTopN(similarities, topK, threshold)
@@ -171,17 +170,18 @@ class FileEmbeddingStore(
         idToFileOffsetIndex.clear()
     }
 
-    private fun validateEmbeds(embeddings: List<StoredEmbedding>) {
+    private fun validateEmbeds(embeddings: List<StoredEmbedding>, quantize: Boolean) {
+        val isQuantEmbed = embeddings[0].embedding is Embedding.QInt8
+
         for (embedding in embeddings) {
             val size = when (val e = embedding.embedding) {
                 is Embedding.F32 -> e.vector.size
                 is Embedding.QInt8 -> e.vector.size
             }
-
-            if (size != embeddingDimension) {
-                throw SmartScanException.InvalidEmbeddingDimension(
-                    "Embedding dimension mismatch. Expected $embeddingDimension, got $size"
-                )
+            when{
+                size != embeddingDimension -> throw SmartScanException.InvalidEmbeddingDimension("Embedding dimension mismatch. Expected $embeddingDimension, got $size")
+                quantize && !isQuantEmbed -> throw SmartScanException.InvalidEmbeddingType("Embedding must be of type QInt8")
+                !quantize && isQuantEmbed -> throw SmartScanException.InvalidEmbeddingType("Embedding must be of type F32")
             }
         }
     }
