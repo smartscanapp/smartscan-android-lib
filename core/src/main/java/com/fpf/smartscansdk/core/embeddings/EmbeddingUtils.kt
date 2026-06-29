@@ -56,8 +56,8 @@ fun getSimilarities(embedding: ByteArray, comparisonEmbeddings: List<ByteArray>)
 fun getSimilarities(embedding: Embedding, comparisonEmbeddings: List<Embedding>): List<Float> {
     return comparisonEmbeddings.map {
         when(embedding){
-            is Embedding.F32 -> embedding.vector dot (it as Embedding.F32).vector
-            is Embedding.QInt8 -> embedding.vector dot (it as Embedding.QInt8).vector
+            is Embedding.F32 -> embedding.vector dot it.toF32Embed().vector
+            is Embedding.QInt8 -> embedding.vector dot it.toQInt8Embed().vector
         }
     }
 }
