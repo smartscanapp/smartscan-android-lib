@@ -92,7 +92,7 @@ internal class F32EmbeddingCodec(
                 fb.get(floats)
                 buffer.position(buffer.position() + embeddingDimension * 4)
 
-                cacheMap[id] = StoredEmbedding(id, date, Embedding.F32(floats))
+                cacheMap[id] = StoredEmbedding(id, date, floats.toF32Embed())
                 idxMap[id] = offset
                 offset += recordSize.toLong()
             }

@@ -93,7 +93,7 @@ fun generatePrototypeEmbedding(embeddings: List<Embedding>): Embedding{
     }
     val norm = normalizeL2(FloatArray(embeddingLength) { i -> sum[i] / embeddings.size })
     val isQuant = embeddings.first() is Embedding.QInt8
-    return if(isQuant) Embedding.QInt8(norm.toQInt8()) else Embedding.F32(norm)
+    return if(isQuant) norm.toQInt8Embed() else norm.toF32Embed()
 }
 
 
@@ -137,7 +137,7 @@ fun updatePrototypeEmbedding(embedding: Embedding, newEmbeddings: List<Embedding
     for (i in updatedPrototype.indices) updatedPrototype[i] /= updatedN.toFloat()
     val isQuant = embedding is Embedding.QInt8
     val norm = normalizeL2(updatedPrototype)
-    val embed =  if(isQuant) Embedding.QInt8(norm.toQInt8()) else Embedding.F32(norm)
+    val embed =  if(isQuant) norm.toQInt8Embed() else norm.toF32Embed()
     return Pair(embed, updatedN)
 }
 

@@ -87,7 +87,7 @@ internal class QInt8EmbeddingCodec(
                 val date = buffer.long
                 val vector = ByteArray(embeddingDimension)
                 buffer.get(vector)
-                cacheMap[id] = StoredEmbedding(id, date, Embedding.QInt8(vector))
+                cacheMap[id] = StoredEmbedding(id, date, vector.toQInt8Embed())
                 idxMap[id] = offset
                 offset += recordSize.toLong()
             }
