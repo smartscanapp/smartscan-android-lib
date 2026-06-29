@@ -46,16 +46,18 @@ class FileEmbeddingStoreTest {
         return File(tempDir, fileName)
     }
 
-    private fun createStore(quantize: Boolean) =
-        FileEmbeddingStore(getEmbedStoreFile(quantize), embeddingLength, quantize = quantize)
+    private fun createStore(quantize: Boolean) = FileEmbeddingStore(getEmbedStoreFile(quantize), embeddingLength, quantize = quantize)
 
-    fun randomEmbedding(quantize: Boolean): Embedding {
+    private fun randomEmbedding(quantize: Boolean): Embedding {
         val floatArray = FloatArray(embeddingLength) { Random.nextFloat() * 2f - 1f }
         return if (quantize) Embedding.QInt8(floatArray.toQInt8()) else Embedding.F32(floatArray)
     }
 
-    private fun embedding(id: Long, date: Long, values: Embedding) =
-        StoredEmbedding(id, date, values)
+    private fun embedding(id: Long, date: Long, values: Embedding) = StoredEmbedding(id, date, values)
+
+    private fun genEmbeds(n: Int, quantize: Boolean): List<StoredEmbedding> = List(n) { i ->
+        embedding((i + 1).toLong(), ((i + 1) * 100).toLong(), randomEmbedding(quantize = quantize))
+    }
 
     private suspend fun testAddAndLoad(quantize: Boolean) {
         val store = createStore(quantize)
@@ -84,12 +86,7 @@ class FileEmbeddingStoreTest {
 
     private suspend fun testRemove(quantize: Boolean) {
         val store = createStore(quantize)
-        val embeddings = listOf(
-            embedding(1L, 100, randomEmbedding(quantize)),
-            embedding(2L, 200, randomEmbedding(quantize)),
-            embedding(3L, 300, randomEmbedding(quantize))
-        )
-
+        val embeddings = genEmbeds(3, quantize)
         store.add(embeddings)
         store.remove(listOf(2L))
 
@@ -100,7 +97,7 @@ class FileEmbeddingStoreTest {
 
     private suspend fun testCacheAndReload(quantize: Boolean) {
         val store = createStore(quantize)
-        val embeddings = listOf(embedding(1, 100, randomEmbedding(quantize)))
+        val embeddings = genEmbeds(5, quantize)
         store.add(embeddings)
 
         val firstLoad = store.get()
@@ -195,9 +192,7 @@ class FileEmbeddingStoreTest {
 
     private suspend fun testConcurrentAdds(quantize: Boolean) = withContext(Dispatchers.IO) {
         val store = createStore(quantize)
-        val items = List(100) { i ->
-            embedding((i + 1).toLong(), ((i + 1) * 100).toLong(), randomEmbedding(quantize))
-        }
+        val items = genEmbeds(100, quantize)
         val jobs = items.chunked(10).map { chunk ->
             launch(Dispatchers.IO) { store.add(chunk) }
         }
@@ -208,10 +203,9 @@ class FileEmbeddingStoreTest {
         assertEquals(items.size, result.size)
     }
 
-    private suspend fun testCorruptHeader(file: File, quantize: Boolean) =
-        withContext(Dispatchers.IO) {
+    private suspend fun testCorruptHeader(file: File, quantize: Boolean) = withContext(Dispatchers.IO) {
             val store = createStore(quantize)
-            val embeddings = listOf(embedding(1, 100, randomEmbedding(quantize)))
+            val embeddings = genEmbeds(1, quantize)
             val codec = if (quantize) {
                 QInt8EmbeddingCodec(embeddingDimension = embeddingLength, headerSize = 4)
             } else {
@@ -232,9 +226,7 @@ class FileEmbeddingStoreTest {
     private suspend fun testFileNotCreatedWhenEmbedMismatch(quantize: Boolean) =
         withContext(Dispatchers.IO) {
             val store = createStore(quantize = quantize)
-            val embeds = listOf(
-                embedding(1L, 300, randomEmbedding(!quantize)),
-            )
+            val embeds = genEmbeds(5, !quantize)
             assertFailsWith<SmartScanException.InvalidEmbeddingType> {
                 store.add(embeds)
             }
@@ -244,14 +236,7 @@ class FileEmbeddingStoreTest {
 
     private suspend fun testQueryInputValidation(quantize: Boolean) = withContext(Dispatchers.IO) {
         val store = createStore(quantize = quantize)
-        val numberItems = 5
-        val embeds = List(numberItems) { i ->
-            embedding(
-                (i + 1).toLong(),
-                ((i + 1) * 100).toLong(),
-                randomEmbedding(quantize = quantize)
-            )
-        }
+        val embeds = genEmbeds(5, quantize)
         store.add(embeds)
 
         assertFailsWith<SmartScanException.InvalidEmbeddingDimension> {
@@ -271,6 +256,17 @@ class FileEmbeddingStoreTest {
 
         val results = store.query(embeds[0].embedding, 1, 0.8f)
         assertEquals(1, results.ids.size)
+    }
+
+    private suspend fun testDetectsCodecMismatch(quantize: Boolean)  {
+        val store = createStore(quantize = quantize)
+        val embeds = genEmbeds(5, quantize)
+        store.add(embeds)
+
+        val invalidStore = FileEmbeddingStore(getEmbedStoreFile(quantize), embeddingLength, quantize = !quantize)
+        assertFailsWith<SmartScanException.CorruptedEmbeddingStoreFile>{
+            invalidStore.get()
+        }
     }
 
     @Test
@@ -380,20 +376,11 @@ class FileEmbeddingStoreTest {
     fun `quantized embeddings are x4 smaller`() = runTest {
         val store = createStore(quantize = false)
         val quantStore = createStore(quantize = true)
-        val numberItems = 10000
-        val embeds = List(numberItems) { i ->
-            embedding(
-                (i + 1).toLong(),
-                ((i + 1) * 100).toLong(),
-                randomEmbedding(quantize = false)
-            )
-        }
+        val embeds = genEmbeds(10000, false)
         store.add(embeds)
 
         val quantEmbeds = embeds.map {
-            it.copy(
-                embedding = Embedding.QInt8((it.embedding as Embedding.F32).vector.toQInt8())
-            )
+            it.copy(embedding = it.embedding.toQInt8Embed())
         }
         quantStore.add(quantEmbeds)
 
@@ -419,14 +406,7 @@ class FileEmbeddingStoreTest {
     @Test
     fun `query method returns sims when includeSims true`() = runTest {
         val store = createStore(quantize = false)
-        val numberItems = 5
-        val embeds = List(numberItems) { i ->
-            embedding(
-                (i + 1).toLong(),
-                ((i + 1) * 100).toLong(),
-                randomEmbedding(quantize = false)
-            )
-        }
+        val embeds = genEmbeds(5, false)
         store.add(embeds)
 
         val resultsNoSim = store.query(embeds[0].embedding, 1, 0.8f)
@@ -436,5 +416,11 @@ class FileEmbeddingStoreTest {
         val resultsWithSim = store.query(embeds[0].embedding, 1, 0.8f, includeSims = true)
         assertEquals(1, resultsWithSim.ids.size)
         assertEquals(1, resultsWithSim.sims?.size)
+    }
+
+    @Test
+    fun `detects codec mismatch`() = runTest {
+        testDetectsCodecMismatch(quantize = false)
+        testDetectsCodecMismatch(quantize = true)
     }
 }
