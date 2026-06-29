@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
@@ -218,6 +219,27 @@ class FileEmbeddingStoreTest {
         assertEquals(items.size, result.size)
     }
 
+
+    private suspend fun testCorruptHeader(file: File, quantize: Boolean) = withContext(Dispatchers.IO){
+        val store = createStore(quantize)
+        val embeddings = listOf(embedding(1, 100, randomEmbedding(quantize)))
+        val codec = if(quantize){
+            QInt8EmbeddingCodec(embeddingDimension = embeddingLength, headerSize = 4)
+        }else{
+            F32EmbeddingCodec(embeddingDimension = embeddingLength, headerSize = 4)
+        }
+        store.add(embeddings)
+
+        // corrupt first 4 bytes (count header)
+        RandomAccessFile(file, "rw").use { raf ->
+            codec.writeHeader(raf.channel, Int.MAX_VALUE)
+        }
+
+        assertFailsWith<SmartScanException.CorruptedEmbeddingStoreFile> {
+            store.add(listOf(embedding(2, 200, randomEmbedding(quantize))))
+        }
+    }
+
     @Test
     fun `add and load embeddings round trip`() = runTest {
         testAddAndLoad(quantize = false)
@@ -252,23 +274,9 @@ class FileEmbeddingStoreTest {
     }
 
     @Test
-    fun `corrupt header causes IOException`() = runTest {
-        val store = createStore(false)
-        val embeddings = listOf(embedding(1, 100, randomEmbedding(false)))
-        store.add(embeddings)
-
-        // corrupt first 4 bytes (count header)
-        RandomAccessFile(getEmbedStoreFile(false), "rw").use { raf ->
-            val buf = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN)
-            buf.putInt(Int.MAX_VALUE) // absurdly large
-            buf.flip()
-            raf.channel.position(0)
-            raf.channel.write(buf)
-        }
-
-        assertFailsWith<SmartScanException.CorruptedEmbeddingStoreFile> {
-            store.add(listOf(embedding(2, 200, randomEmbedding(false))))
-        }
+    fun `corrupt header causes CorruptedEmbeddingStoreFile exception`() = runTest {
+        testCorruptHeader(getEmbedStoreFile(false), false)
+        testCorruptHeader(getEmbedStoreFile(true), true)
     }
 
     @Test
