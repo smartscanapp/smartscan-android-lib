@@ -67,7 +67,7 @@ internal class QInt8EmbeddingCodec(
         FileInputStream(file).channel.use { ch ->
             val size = ch.size()
             if (size < headerSize) {
-                throw SmartScanException.CorruptedEmbeddingStoreFile("File too small to contain header")
+                throw SmartScanException.InvalidEmbeddingStoreFile("File too small to contain header")
             }
 
             val buffer = ch.map(FileChannel.MapMode.READ_ONLY, 0, size).order(ByteOrder.LITTLE_ENDIAN)
@@ -75,8 +75,8 @@ internal class QInt8EmbeddingCodec(
             val expectedSize = headerSize.toLong() + count.toLong() * recordSize.toLong()
 
             if (count < 0 || expectedSize != size) {
-                throw SmartScanException.CorruptedEmbeddingStoreFile(
-                    "Corrupt embeddings header: count=$count, fileSize=$size"
+                throw SmartScanException.InvalidEmbeddingStoreFile(
+                    "Invalid file: count=$count, fileSize=$size, expectedSize=$expectedSize"
                 )
             }
 
@@ -185,7 +185,7 @@ internal class QInt8EmbeddingCodec(
         channel.position(0)
         val read = channel.read(headerBuf)
         if (read != headerSize) {
-            throw SmartScanException.CorruptedEmbeddingStoreFile("Failed to read header count")
+            throw SmartScanException.InvalidEmbeddingStoreFile("Failed to read header count")
         }
         headerBuf.flip()
 
@@ -193,7 +193,9 @@ internal class QInt8EmbeddingCodec(
         val existingCount = headerBuf.int
         val maxCountFromSize = (size / recordSize)
         if (existingCount !in 0..maxCountFromSize) {
-            throw SmartScanException.CorruptedEmbeddingStoreFile("Corrupt embeddings header: count=$existingCount, fileSize=${size}")
+            throw SmartScanException.InvalidEmbeddingStoreFile(
+                "Unexpected count: count=$existingCount"
+            )
         }
         existingCount
     }

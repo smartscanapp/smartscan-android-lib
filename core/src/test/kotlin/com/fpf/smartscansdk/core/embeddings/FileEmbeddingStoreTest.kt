@@ -218,7 +218,7 @@ class FileEmbeddingStoreTest {
                 codec.writeHeader(raf.channel, Int.MAX_VALUE)
             }
 
-            assertFailsWith<SmartScanException.CorruptedEmbeddingStoreFile> {
+            assertFailsWith<SmartScanException.InvalidEmbeddingStoreFile> {
                 store.add(listOf(embedding(2, 200, randomEmbedding(quantize))))
             }
         }
@@ -264,7 +264,7 @@ class FileEmbeddingStoreTest {
         store.add(embeds)
 
         val invalidStore = FileEmbeddingStore(getEmbedStoreFile(quantize), embeddingLength, quantize = !quantize)
-        assertFailsWith<SmartScanException.CorruptedEmbeddingStoreFile>{
+        assertFailsWith<SmartScanException.InvalidEmbeddingStoreFile>{
             invalidStore.get()
         }
     }
