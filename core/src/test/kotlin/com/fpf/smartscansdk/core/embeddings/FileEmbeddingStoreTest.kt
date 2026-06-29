@@ -264,7 +264,7 @@ class FileEmbeddingStoreTest {
         store.add(embeds)
 
         val invalidStore = FileEmbeddingStore(getEmbedStoreFile(quantize), embeddingLength, quantize = !quantize)
-        assertFailsWith<SmartScanException.InvalidEmbeddingStoreFile>{
+        assertFailsWith<SmartScanException.CodecMismatch>{
             invalidStore.get()
         }
     }

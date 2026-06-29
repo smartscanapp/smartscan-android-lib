@@ -78,7 +78,10 @@ internal class F32EmbeddingCodec(
 
             if (count < 0 || expectedSize != size) {
                 throw SmartScanException.InvalidEmbeddingStoreFile(
-                    "Invalid file: count=$count, fileSize=$size, expectedSize=$expectedSize"
+                    "Invalid file: count=$count, fileSize=$size, expectedSize=$expectedSize",
+                    fileSize = size.toInt(),
+                    expectedFileSize = expectedSize.toInt(),
+                    count = count
                 )
             }
 

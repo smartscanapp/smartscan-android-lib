@@ -17,17 +17,18 @@ class FileEmbeddingStore(
 
     companion object {
         const val TAG = "FileEmbeddingStore"
+        private const val HEADER_SIZE = 4
     }
 
     private val codec = if(quantize){
         QInt8EmbeddingCodec(
             embeddingDimension = embeddingDimension,
-            headerSize = 4
+            headerSize = HEADER_SIZE
         )
     }else{
         F32EmbeddingCodec(
             embeddingDimension = embeddingDimension,
-            headerSize = 4
+            headerSize = HEADER_SIZE
         )
     }
     private val fileMutex = Mutex()
@@ -45,9 +46,13 @@ class FileEmbeddingStore(
 
     private suspend fun load(): LinkedHashMap<Long, StoredEmbedding> = withContext(Dispatchers.IO) {
         if (!file.exists()) return@withContext LinkedHashMap()
-        val (embedMap, idxMap) = codec.read(file)
-        idToFileOffsetIndex = idxMap
-        embedMap
+        try {
+            val (embedMap, idxMap) = codec.read(file)
+            idToFileOffsetIndex = idxMap
+            embedMap
+        }catch (e: SmartScanException.InvalidEmbeddingStoreFile){
+            throw handleInvalidEmbedStoreError(e)
+        }
     }
 
     override suspend fun get(): List<StoredEmbedding> = fileMutex.withLock {
@@ -191,5 +196,23 @@ class FileEmbeddingStore(
             if(queryEmbed !is Embedding.F32) throw SmartScanException.InvalidEmbeddingType("Embedding must be of type F32")
             if(storedEmbed.embedding !is Embedding.F32) throw SmartScanException.InvalidEmbeddingType("Mismatch between query embedding and stored embeddings. Both must be of type F32")
         }
+    }
+
+    private fun handleInvalidEmbedStoreError(e: SmartScanException.InvalidEmbeddingStoreFile): SmartScanException{
+        if(listOf(e.fileSize, e.expectedFileSize, e.count).all { it != null }){
+            val quantRecordSize = 8 + 8 + embeddingDimension
+            val f32RecordSize =  8 + 8 + embeddingDimension * 4
+            val (expectedSizeOfOtherCodec, storedType) = if(quantize){
+                HEADER_SIZE + e.count!! * f32RecordSize to "F32"
+            }else{
+                HEADER_SIZE + e.count!! * quantRecordSize to "QInt8"
+            }
+            if (expectedSizeOfOtherCodec == e.fileSize) {
+                return SmartScanException.CodecMismatch(
+                    "Codec mismatch: quantize=$quantize but the file passed stores embedding that are $storedType format. "
+                )
+            } 
+        }
+        return e
     }
 }
