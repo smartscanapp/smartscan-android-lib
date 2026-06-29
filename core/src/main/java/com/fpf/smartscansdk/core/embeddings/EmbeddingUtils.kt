@@ -88,7 +88,7 @@ fun generatePrototypeEmbedding(embeddings: List<Embedding>): Embedding{
     val embeddingLength = embeddings[0].size
     val sum = FloatArray(embeddingLength)
     for (emb in embeddings){
-        val floatArray = emb.toFloatArray()
+        val floatArray = emb.toF32()
         for (i in floatArray.indices) sum[i] += floatArray[i]
     }
     val norm = normalizeL2(FloatArray(embeddingLength) { i -> sum[i] / embeddings.size })
@@ -128,7 +128,7 @@ fun updatePrototypeEmbedding(embedding: Embedding, newEmbeddings: List<Embedding
     val updatedN = currentN + newEmbeddings.size
     val sumNew = sumEmbeddings(newEmbeddings)
     val updatedPrototype = FloatArray(embedding.size)
-    val embAsFloatArr = embedding.toFloatArray()
+    val embAsFloatArr = embedding.toF32()
 
     if(currentN > 0){
         for(i in updatedPrototype.indices) updatedPrototype[i] = currentN.toFloat() * embAsFloatArr[i]
@@ -208,7 +208,7 @@ fun sumEmbeddings(embeddings: List<ByteArray>): FloatArray {
 fun sumEmbeddings(embeddings: List<Embedding>): FloatArray {
     val sum = FloatArray(embeddings[0].size)
     for (emb in embeddings) {
-        val floatArray = emb.toFloatArray()
+        val floatArray = emb.toF32()
         for (i in floatArray.indices) {
             sum[i] += floatArray[i]
         }

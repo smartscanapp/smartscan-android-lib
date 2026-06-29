@@ -19,7 +19,7 @@ fun Embedding.toF32Embed(): Embedding.F32 = when(this){
     is Embedding.F32 -> this
     is Embedding.QInt8 -> Embedding.F32(this.vector.toF32())
 }
-fun Embedding.toFloatArray(): FloatArray = when(this){
+fun Embedding.toF32(): FloatArray = when(this){
     is Embedding.F32 -> this.vector
     is Embedding.QInt8 -> this.toF32Embed().vector
 }
