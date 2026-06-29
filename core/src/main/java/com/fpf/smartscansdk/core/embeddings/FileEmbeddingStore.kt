@@ -145,13 +145,8 @@ class FileEmbeddingStore(
 
         if (storedEmbeddings.isEmpty()) return QueryResult()
 
-        if (quantize){
-            if(embedding !is Embedding.QInt8) throw SmartScanException.InvalidEmbeddingType("Embedding must be of type QInt8")
-            if(storedEmbeddings[0].embedding !is Embedding.QInt8) throw SmartScanException.InvalidEmbeddingType("Mismatch between query embedding and stored embeddings. Both must be of type QInt8")
-        }else{
-            if(embedding !is Embedding.F32) throw SmartScanException.InvalidEmbeddingType("Embedding must be of type F32")
-            if(storedEmbeddings[0].embedding !is Embedding.F32) throw SmartScanException.InvalidEmbeddingType("Mismatch between query embedding and stored embeddings. Both must be of type F32")
-        }
+        validateQuery(quantize, embedding, storedEmbeddings[0])
+
         val similarities = getSimilarities(embedding, storedEmbeddings.map { it.embedding })
         val resultIndices = getTopN(similarities, topK, threshold)
 
@@ -183,6 +178,18 @@ class FileEmbeddingStore(
                 quantize && !isQuantEmbed -> throw SmartScanException.InvalidEmbeddingType("Embedding must be of type QInt8")
                 !quantize && isQuantEmbed -> throw SmartScanException.InvalidEmbeddingType("Embedding must be of type F32")
             }
+        }
+    }
+
+    private fun validateQuery(quantize: Boolean, queryEmbed: Embedding, storedEmbed: StoredEmbedding) {
+        val size = queryEmbed.size
+        if(size != embeddingDimension) throw SmartScanException.InvalidEmbeddingDimension("Embedding dimension mismatch. Expected $embeddingDimension, got $size")
+        if (quantize){
+            if(queryEmbed !is Embedding.QInt8) throw SmartScanException.InvalidEmbeddingType("Embedding must be of type QInt8")
+            if(storedEmbed.embedding !is Embedding.QInt8) throw SmartScanException.InvalidEmbeddingType("Mismatch between query embedding and stored embeddings. Both must be of type QInt8")
+        }else{
+            if(queryEmbed !is Embedding.F32) throw SmartScanException.InvalidEmbeddingType("Embedding must be of type F32")
+            if(storedEmbed.embedding !is Embedding.F32) throw SmartScanException.InvalidEmbeddingType("Mismatch between query embedding and stored embeddings. Both must be of type F32")
         }
     }
 }
