@@ -9,4 +9,5 @@ internal interface EmbeddingCodec {
     suspend  fun append(file: File, embeddings: List<StoredEmbedding>, idToFileOffsetIndex: MutableMap<Long, Long>): Int
     suspend fun update(file: File, embeddings: List<StoredEmbedding>, idToFileOffsetIndex: MutableMap<Long, Long>): Int
     suspend fun readHeader(channel: FileChannel): Int
+    suspend fun writeHeader(channel: FileChannel, embeddingCount: Int)
 }

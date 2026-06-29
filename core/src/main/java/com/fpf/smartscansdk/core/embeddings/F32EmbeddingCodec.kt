@@ -19,17 +19,13 @@ internal class F32EmbeddingCodec(
 ): EmbeddingCodec {
 
     // Long + Long + FloatArray
-
     private val recordSize = (8 + 8 )+ embeddingDimension * 4
 
     override suspend fun writeReplace(embeddings: List<StoredEmbedding>, idToFileOffsetIndex: MutableMap<Long, Long>, outputFile: File):Unit = withContext(Dispatchers.IO) {
         val tempFile = File.createTempFile(outputFile.nameWithoutExtension, ".tmp")
 
         FileOutputStream(tempFile).channel.use { channel ->
-            val header = ByteBuffer.allocate(headerSize).order(ByteOrder.LITTLE_ENDIAN)
-            header.putInt(embeddings.size)
-            header.flip()
-            channel.write(header)
+            writeHeader(channel, embeddings.size)
 
             val batchSize = 1000
             var index = 0
@@ -157,15 +153,7 @@ internal class F32EmbeddingCodec(
                 flushBuffer()
             }
 
-            // Write updated count back as little-endian
-            val headerBuf = ByteBuffer.allocate(headerSize).order(ByteOrder.LITTLE_ENDIAN)
-            headerBuf.putInt(newCount)
-            headerBuf.flip()
-            channel.position(0)
-            while (headerBuf.hasRemaining()) {
-                channel.write(headerBuf)
-            }
-
+            writeHeader(channel, newCount)
             channel.force(false)
 
             // update in-memory file offset index for the newly appended entry and cache
@@ -177,11 +165,7 @@ internal class F32EmbeddingCodec(
         }
     }
 
-    override suspend fun update(
-        file: File,
-        embeddings: List<StoredEmbedding>,
-        idToFileOffsetIndex: MutableMap<Long, Long>,
-    ): Int = withContext(Dispatchers.IO) {
+    override suspend fun update(file: File, embeddings: List<StoredEmbedding>, idToFileOffsetIndex: MutableMap<Long, Long>): Int = withContext(Dispatchers.IO) {
         var updatedCount = 0
 
         RandomAccessFile(file, "rw").use { raf ->
@@ -208,7 +192,6 @@ internal class F32EmbeddingCodec(
         updatedCount
     }
 
-
     override suspend fun readHeader(channel: FileChannel): Int = withContext(Dispatchers.IO) {
         val headerBuf = ByteBuffer.allocate(headerSize).order(ByteOrder.LITTLE_ENDIAN)
         channel.position(0)
@@ -225,6 +208,16 @@ internal class F32EmbeddingCodec(
             throw SmartScanException.CorruptedEmbeddingStoreFile("Corrupt embeddings header: count=$existingCount, fileSize=${size}")
         }
         existingCount
+    }
+
+    override suspend fun writeHeader(channel: FileChannel, embeddingCount: Int) = withContext(Dispatchers.IO){
+        val headerBuf = ByteBuffer.allocate(headerSize).order(ByteOrder.LITTLE_ENDIAN)
+        headerBuf.putInt(embeddingCount)
+        headerBuf.flip()
+        channel.position(0)
+        while (headerBuf.hasRemaining()) {
+            channel.write(headerBuf)
+        }
     }
 
 }
