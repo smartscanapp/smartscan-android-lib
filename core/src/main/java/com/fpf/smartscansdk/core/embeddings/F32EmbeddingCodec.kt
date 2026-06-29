@@ -76,7 +76,7 @@ internal class F32EmbeddingCodec(
             val count = buffer.int
             val expectedSize = headerSize.toLong() + count.toLong() * recordSize.toLong()
 
-            if (count < 0 || expectedSize > size) {
+            if (count < 0 || expectedSize != size) {
                 throw SmartScanException.CorruptedEmbeddingStoreFile(
                     "Corrupt embeddings header: count=$count, fileSize=$size"
                 )
