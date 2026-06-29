@@ -118,7 +118,6 @@ class FileEmbeddingStoreTest {
         })
     }
 
-
     private suspend fun testUpdate(quantize: Boolean) {
         val store = createStore(quantize)
 
@@ -160,8 +159,6 @@ class FileEmbeddingStoreTest {
         assertEquals(200L, unchangedEntry.date)
     }
 
-
-
     private suspend fun testAddRemovePersistence(quantize: Boolean){
         val store = createStore(quantize)
 
@@ -169,7 +166,6 @@ class FileEmbeddingStoreTest {
             embedding(1L, 100, randomEmbedding(quantize)),
             embedding(2L, 200, randomEmbedding(quantize))
         )
-
         val secondBatch = listOf(
             embedding(3L, 300, randomEmbedding(quantize)),
             embedding(4L, 400, randomEmbedding(quantize))
@@ -195,30 +191,20 @@ class FileEmbeddingStoreTest {
         assertTrue(result.none { it.id == 3L })
     }
 
-    private suspend fun testConcurrentAdds( quantize: Boolean) = runTest {
+    private suspend fun testConcurrentAdds( quantize: Boolean) = withContext(Dispatchers.IO) {
         val store = createStore(quantize)
-
         val items = List(100) { i ->
-            embedding(
-                (i + 1).toLong(),
-                ((i + 1) * 100).toLong(),
-                randomEmbedding(quantize)
-            )
+            embedding((i + 1).toLong(), ((i + 1) * 100).toLong(), randomEmbedding(quantize))
         }
-
         val jobs = items.chunked(10).map { chunk ->
-            launch(Dispatchers.IO) {
-                store.add(chunk)
-            }
+            launch(Dispatchers.IO) { store.add(chunk) }
         }
-
         jobs.joinAll()
 
         val result = store.get()
 
         assertEquals(items.size, result.size)
     }
-
 
     private suspend fun testCorruptHeader(file: File, quantize: Boolean) = withContext(Dispatchers.IO){
         val store = createStore(quantize)
@@ -238,6 +224,17 @@ class FileEmbeddingStoreTest {
         assertFailsWith<SmartScanException.CorruptedEmbeddingStoreFile> {
             store.add(listOf(embedding(2, 200, randomEmbedding(quantize))))
         }
+    }
+
+    private suspend fun testFileNotCreatedWhenEmbedMismatch(quantize: Boolean) = withContext(Dispatchers.IO) {
+        val store = createStore(quantize = quantize)
+        val embeds = listOf(
+            embedding(1L, 300, randomEmbedding(!quantize)),
+        )
+        assertFailsWith<SmartScanException.InvalidEmbeddingType> {
+            store.add(embeds)
+        }
+        assertEquals(false, store.exists)
     }
 
     @Test
@@ -282,8 +279,7 @@ class FileEmbeddingStoreTest {
     @Test
     fun `duplicated ids are not persisted to file`() = runTest {
         val store = createStore(false)
-        val file = File(tempDir, "embeddings.bin")
-
+        val file = getEmbedStoreFile(false)
         val first = embedding(1L, 100, randomEmbedding(false))
         store.add(listOf(first))
 
@@ -369,5 +365,11 @@ class FileEmbeddingStoreTest {
         val quantEmbedFile = getEmbedStoreFile(quantize = true)
         val ratio = embedFile.readBytes().size.toDouble() / quantEmbedFile.readBytes().size.toDouble()
         assertEquals(4, ratio.roundToInt())
+    }
+
+    @Test
+    fun `embedding store file not created when embedding mismatch`() = runTest {
+        testFileNotCreatedWhenEmbedMismatch(quantize = false)
+        testFileNotCreatedWhenEmbedMismatch(quantize = true)
     }
 }
