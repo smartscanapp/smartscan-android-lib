@@ -39,7 +39,7 @@ internal class QInt8EmbeddingCodec(
                 val batchBuffer = ByteBuffer.allocate(batch.size * recordSize).order(ByteOrder.LITTLE_ENDIAN)
 
                 for (embedding in batch) {
-                    require(embedding.embedding is Embedding.QInt8){"Embedding must be of type QInt8"}
+                    if(embedding.embedding !is Embedding.QInt8) throw SmartScanException.InvalidEmbeddingType("Embedding must be of type QInt8")
                     batchBuffer.putLong(embedding.id)
                     batchBuffer.putLong(embedding.date)
                     for (byte in embedding.embedding.vector) {
@@ -123,7 +123,7 @@ internal class QInt8EmbeddingCodec(
             }
 
             for (embedding in embeddings) {
-                require(embedding.embedding is Embedding.QInt8){"Embedding must be of type QInt8"}
+                if(embedding.embedding !is Embedding.QInt8) throw SmartScanException.InvalidEmbeddingType("Embedding must be of type QInt8")
                 if (writeBuffer.remaining() < recordSize) {
                     flushBuffer()
                 }
@@ -159,7 +159,7 @@ internal class QInt8EmbeddingCodec(
             val channel = raf.channel
 
             for (emb in embeddings) {
-                require(emb.embedding is Embedding.QInt8){"Embedding must be of type QInt8"}
+                if(emb.embedding !is Embedding.QInt8) throw SmartScanException.InvalidEmbeddingType("Embedding must be of type QInt8")
                 val offset = idToFileOffsetIndex[emb.id] ?: continue
                 val buf = ByteBuffer.allocate(recordSize).order(ByteOrder.LITTLE_ENDIAN)
                 buf.putLong(emb.id)

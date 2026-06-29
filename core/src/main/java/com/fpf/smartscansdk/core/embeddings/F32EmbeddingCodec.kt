@@ -40,7 +40,7 @@ internal class F32EmbeddingCodec(
                     .order(ByteOrder.LITTLE_ENDIAN)
 
                 for (embedding in batch) {
-                    require(embedding.embedding is Embedding.F32){"Embedding must be of type F32"}
+                    if(embedding.embedding !is Embedding.F32) throw SmartScanException.InvalidEmbeddingType("Embedding must be of type F32")
                     batchBuffer.putLong(embedding.id)
                     batchBuffer.putLong(embedding.date)
                     for (f in embedding.embedding.vector) {
@@ -139,7 +139,7 @@ internal class F32EmbeddingCodec(
             }
 
             for (embedding in embeddings) {
-                require(embedding.embedding is Embedding.F32){"Embedding must be of type F32"}
+                if(embedding.embedding !is Embedding.F32) throw SmartScanException.InvalidEmbeddingType("Embedding must be of type F32")
                 if (writeBuffer.remaining() < recordSize) {
                     flushBuffer()
                 }
@@ -172,7 +172,7 @@ internal class F32EmbeddingCodec(
             val channel = raf.channel
 
             for (emb in embeddings) {
-                require(emb.embedding is Embedding.F32){"Embedding must be of type F32"}
+                if(emb.embedding !is Embedding.F32) throw SmartScanException.InvalidEmbeddingType("Embedding must be of type F32")
                 val offset = idToFileOffsetIndex[emb.id] ?: continue
                 val buf = ByteBuffer.allocate(recordSize).order(ByteOrder.LITTLE_ENDIAN)
                 buf.putLong(emb.id)
