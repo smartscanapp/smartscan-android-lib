@@ -142,7 +142,7 @@ Several extension functions are provided to easily convert between embedding for
 
 ### Indexing
 
-To get started with indexing media quickly, you can use the provided `ImageIndex` and `VideoIndexer` classes as shown below.  See [indexers documentation](docs/core/indexers.md) for more details.
+To get started with indexing media quickly, you can use the provided `ImageIndexer` and `VideoIndexer` classes as shown below.  See [indexers documentation](docs/core/indexers.md) for more details.
 You can optionally create your own indexers by extending the `BatchProcessor`. See [processor documentation](docs/core/processors.md) for more details.
 
 #### Image Indexing
@@ -232,16 +232,16 @@ val result = clusterer.cluster(itemEmbeds)
 
 ### Core and ML
 
-core → contains all core business logic: shared interfaces, data models, embeddings, clustering, classification, indexing, and processing components for batch/concurrent execution.
+core → contains all the lightweight core business logic (indexing, embedding storage, clustering, classification etc...)
 
-ml → contains all machine learning components, including models, providers, and everything they depend on.
+ml → contains all machine learning model components and dependencies
 
 ---
 
 ### Embedding Storage
 
-The SDK only provides a file based implementation of `EmbeddingStore`, `FileEmbeddingStore` because the following benchmarks below show much better performance for loading embeddings in comparison to Room. 
-FileEmbeddingStore also supports quantized embeddings allowed for **x4 less memory usage**.
+The SDK only provides a file based implementation of `EmbeddingStore` (`FileEmbeddingStore`) because the following benchmarks below show much better performance for loading embeddings in comparison to Room. 
+Quantized embeddings are supported allowing for **x4 less memory usage**.
 
 #### **Benchmark Summary**
 
