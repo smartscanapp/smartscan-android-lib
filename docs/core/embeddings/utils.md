@@ -1,4 +1,4 @@
-````md
+
 # Embedding Utilities Documentation
 
 ## Similarity
@@ -183,4 +183,3 @@ Behavior:
 * Processes inputs in batches.
 * Uses `BatchProcessor` internally.
 * Returns the generated embeddings in the same order as the input data.
-````

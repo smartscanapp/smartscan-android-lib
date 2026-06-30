@@ -1,4 +1,3 @@
-````md
 # Indexers Documentation
 
 ## ImageIndexer
@@ -120,4 +119,4 @@ Behavior:
 * Supports optional embedding quantization.
 * Frame extraction may fail for videos with unsupported codecs.
 * Intended for semantic retrieval, clustering, and classification pipelines.
-````
+
