@@ -83,8 +83,6 @@ Generate vector embeddings from text strings or batches of text for tasks such a
 **Usage Example:**
 
 ```kotlin
-//import com.fpf.smartscansdk.ml.models.providers.embeddings.clip.ClipTextEmbedder
-
 // downloaded model
 val textEmbedder = ModelManager.getTextEmbedder(application, ModelName.ALL_MINILM_L6_V2)
 
@@ -113,8 +111,6 @@ Generate vector embeddings from images (as `Bitmap`) for visual search or simila
 **Usage Example**
 
 ```kotlin
-//import com.fpf.smartscansdk.ml.models.providers.embeddings.clip.ClipImageEmbedder
-
 // downloaded model
 val imageEmbedder = ModelManager.getImageEmbedder(application, ModelName.DINOV2_SMALL)
 
@@ -153,7 +149,7 @@ Index images to enable similarity search. The index is saved as a binary file an
 
 
 ```kotlin
-val imageEmbedder = ClipImageEmbedder(context, ResourceId(R.raw.image_encoder_quant_int8))
+val imageEmbedder = ClipImageEmbedder(application, ModelAssetSource.Resource(R.raw.clip_image_encoder_quant))
 val imageStore = FileEmbeddingStore(File(context.filesDir, "image_index.bin"), imageEmbedder.embeddingDim) 
 val imageIndexer = ImageIndexer(imageEmbedder, context=context, listener = null, store = imageStore) //optionally pass a listener to handle events
 
@@ -170,7 +166,7 @@ Index videos to enable similarity search. The index is saved as a binary file an
 > **Important**: During indexing the MediaStore Id is used to as the id in the `StoredEmbedding` which is stored. This can later be used for retrieval.
 
 ```kotlin
-val imageEmbedder = ClipImageEmbedder(context, ResourceId(R.raw.image_encoder_quant_int8))
+val imageEmbedder = ClipImageEmbedder(application, ModelAssetSource.Resource(R.raw.clip_image_encoder_quant))
 val videoStore = FileEmbeddingStore(File(context.filesDir,  "video_index.bin"), imageEmbedder.embeddingDim )
 val videoIndexer = VideoIndexer(imageEmbedder, context=context, listener = null, store = videoStore, width = ClipConfig.IMAGE_SIZE_X, height = ClipConfig.IMAGE_SIZE_Y)
 // Optionally quantized embeddings
