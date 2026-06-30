@@ -1,3 +1,32 @@
+## v2.2.0 - 30/06/2026
+
+### Added
+
+* Added support for usage and storage of quantized embeddings
+* Added codecs for `FileEmbeddingStore`
+* Added `quantize` boolean parameter to `FileEmbeddingStore` to control whether to store
+* Added `quantize` boolean parameter to `ImageIndexer` and `VideoIndexer` to control whether to quantize embeddings during indexing.
+* Added `CodecMismatch` error to `SmartScanException`
+* Added `InvalidEmbeddingType` error to `SmartScanException`
+* Added extension functions for conversions between embedding formats
+* Added overload functions in `EmbeddingUtils.kt` to support different embedding formats
+
+
+### Changed
+
+**All changes below are breaking changes!**
+
+* Replaced usage of FloatArray for embeddings with Embedding sealed interface which supports `F32` (FloatArray) embeddings and `QInt8` (ByteArray) embeddings. This applies to:
+  - `StoreEmbedding`
+  - Any implementation of `EmbeddingStore`
+  - `Cluster`
+  - `ImageIndexer`
+  - `VideoIndexer`
+* `fewShotClassifcation` function signature changed to: `fun fewShotClassify(embedding: Embedding, classPrototypes: List<Cluster>): ClassificationResult`
+* Replaced `CorruptedEmbeddingStoreFile` error with `InvalidEmbeddingStoreFile`
+
+___
+
 ## v2.1.0 - 19/06/2026
 
 ### Added

@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
@@ -16,8 +17,8 @@ import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.io.RandomAccessFile
-import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.math.roundToInt
 import kotlin.random.Random
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
@@ -40,56 +41,52 @@ class FileEmbeddingStoreTest {
 
     private val embeddingLength = 512
 
-    private fun createStore(file: File = File(tempDir, "embeddings.bin")) =
-        FileEmbeddingStore(file, embeddingLength)
-
-
-    fun randomEmbedding(): FloatArray {
-        return FloatArray(embeddingLength) { Random.nextFloat() * 2f - 1f }
+    private fun getEmbedStoreFile(quantize: Boolean): File {
+        val fileName = if (quantize) "embeddings_quant.bin" else "embeddings.bin"
+        return File(tempDir, fileName)
     }
-    private fun embedding(id: Long, date: Long, values: FloatArray) =
-        StoredEmbedding(id, date, values)
 
-    @Test
-    fun `add and load embeddings round trip`() = runTest {
-        val store = createStore()
+    private fun createStore(quantize: Boolean) = FileEmbeddingStore(getEmbedStoreFile(quantize), embeddingLength, quantize = quantize)
+
+    private fun randomEmbedding(quantize: Boolean): Embedding {
+        val floatArray = FloatArray(embeddingLength) { Random.nextFloat() * 2f - 1f }
+        return if (quantize) Embedding.QInt8(floatArray.toQInt8()) else Embedding.F32(floatArray)
+    }
+
+    private fun embedding(id: Long, date: Long, values: Embedding) = StoredEmbedding(id, date, values)
+
+    private fun genEmbeds(n: Int, quantize: Boolean): List<StoredEmbedding> = List(n) { i ->
+        embedding((i + 1).toLong(), ((i + 1) * 100).toLong(), randomEmbedding(quantize = quantize))
+    }
+
+    private suspend fun testAddAndLoad(quantize: Boolean) {
+        val store = createStore(quantize)
         val embeddings = listOf(
-            embedding(1, 100, randomEmbedding()),
-            embedding(2, 200, randomEmbedding())
+            embedding(1, 100, randomEmbedding(quantize)),
+            embedding(2, 200, randomEmbedding(quantize))
         )
 
         store.add(embeddings)
         val loaded = store.get()
 
-        Assertions.assertEquals(2, loaded.size)
-        Assertions.assertEquals(embeddings[0].id, loaded[0].id)
-        Assertions.assertEquals(embeddings[1].embedding.toList(), loaded[1].embedding.toList())
+        assertEquals(2, loaded.size)
+        assertEquals(embeddings[0].id, loaded[0].id)
+        when (val a = embeddings[1].embedding) {
+            is Embedding.F32 -> {
+                val b = loaded[1].embedding as Embedding.F32
+                assertEquals(a.vector.toList(), b.vector.toList())
+            }
+
+            is Embedding.QInt8 -> {
+                val b = loaded[1].embedding as Embedding.QInt8
+                assertEquals(a.vector.toList(), b.vector.toList())
+            }
+        }
     }
 
-    @Test
-    fun `add embeddings appends correctly`() = runTest {
-        val store = createStore()
-        val first = listOf(embedding(1, 100, randomEmbedding()))
-        val second = listOf(embedding(2, 200, randomEmbedding()))
-
-        store.add(first)
-        store.add(second)
-
-        val all = store.get()
-        Assertions.assertEquals(2, all.size)
-        Assertions.assertEquals(1, all[0].id)
-        Assertions.assertEquals(2, all[1].id)
-    }
-
-    @Test
-    fun `remove embeddings deletes specified ids`() = runTest {
-        val store = createStore()
-        val embeddings = listOf(
-            embedding(1L, 100, randomEmbedding()),
-            embedding(2L, 200, randomEmbedding()),
-            embedding(3L, 300, randomEmbedding())
-        )
-
+    private suspend fun testRemove(quantize: Boolean) {
+        val store = createStore(quantize)
+        val embeddings = genEmbeds(3, quantize)
         store.add(embeddings)
         store.remove(listOf(2L))
 
@@ -98,10 +95,9 @@ class FileEmbeddingStoreTest {
         Assertions.assertFalse(remaining.any { it.id == 2L })
     }
 
-    @Test
-    fun `cache is cleared and reloads`() = runTest {
-        val store = createStore()
-        val embeddings = listOf(embedding(1, 100, FloatArray(embeddingLength) { 0.1f }))
+    private suspend fun testCacheAndReload(quantize: Boolean) {
+        val store = createStore(quantize)
+        val embeddings = genEmbeds(5, quantize)
         store.add(embeddings)
 
         val firstLoad = store.get()
@@ -109,49 +105,217 @@ class FileEmbeddingStoreTest {
 
         val secondLoad = store.get()
         assertTrue(firstLoad.zip(secondLoad).all { (a, b) ->
-            a.id == b.id && a.date == b.date && a.embedding.contentEquals(b.embedding)
+            a.id == b.id && a.date == b.date && when {
+                a.embedding is Embedding.F32 && b.embedding is Embedding.F32 ->
+                    a.embedding.vector.contentEquals(b.embedding.vector)
+
+                a.embedding is Embedding.QInt8 && b.embedding is Embedding.QInt8 ->
+                    a.embedding.vector.contentEquals(b.embedding.vector)
+
+                else -> false
+            }
         })
+    }
+
+    private suspend fun testUpdate(quantize: Boolean) {
+        val store = createStore(quantize)
+
+        val original = listOf(
+            embedding(1L, 100, randomEmbedding(quantize)),
+            embedding(2L, 200, randomEmbedding(quantize))
+        )
+
+        store.add(original)
+        val updatedEmbedding = randomEmbedding(quantize)
+        val updated = listOf(
+            embedding(1L, 999, updatedEmbedding),
+            embedding(3L, 300, randomEmbedding(quantize)) // does not exist
+        )
+
+        val updatedCount = store.update(updated)
+
+        assertEquals(1, updatedCount)
+
+        val loaded = store.get()
+
+        assertEquals(2, loaded.size)
+
+        val updatedEntry = loaded.first { it.id == 1L }
+        assertEquals(999L, updatedEntry.date)
+        assertTrue(
+            when {
+                updatedEntry.embedding is Embedding.F32 && updatedEmbedding is Embedding.F32 ->
+                    updatedEntry.embedding.vector.contentEquals(updatedEmbedding.vector)
+
+                updatedEntry.embedding is Embedding.QInt8 && updatedEmbedding is Embedding.QInt8 ->
+                    updatedEntry.embedding.vector.contentEquals(updatedEmbedding.vector)
+
+                else -> false
+            }
+        )
+
+        val unchangedEntry = loaded.first { it.id == 2L }
+        assertEquals(200L, unchangedEntry.date)
+    }
+
+    private suspend fun testAddRemovePersistence(quantize: Boolean) {
+        val store = createStore(quantize)
+
+        val firstBatch = listOf(
+            embedding(1L, 100, randomEmbedding(quantize)),
+            embedding(2L, 200, randomEmbedding(quantize))
+        )
+        val secondBatch = listOf(
+            embedding(3L, 300, randomEmbedding(quantize)),
+            embedding(4L, 400, randomEmbedding(quantize))
+        )
+
+        store.add(firstBatch)
+
+        // simulate fresh init state without cache
+        store.clear()
+        store.add(secondBatch)
+
+        // remove one item after cache was reset
+        store.remove(listOf(3L))
+        store.save()
+
+        val result = store.get()
+
+        // Expected: first batch must still exist + second batch minus removed item
+        assertEquals(3, result.size)
+        assertTrue(result.any { it.id == 1L })
+        assertTrue(result.any { it.id == 2L })
+        assertTrue(result.any { it.id == 4L })
+        assertTrue(result.none { it.id == 3L })
+    }
+
+    private suspend fun testConcurrentAdds(quantize: Boolean) = withContext(Dispatchers.IO) {
+        val store = createStore(quantize)
+        val items = genEmbeds(100, quantize)
+        val jobs = items.chunked(10).map { chunk ->
+            launch(Dispatchers.IO) { store.add(chunk) }
+        }
+        jobs.joinAll()
+
+        val result = store.get()
+
+        assertEquals(items.size, result.size)
+    }
+
+    private suspend fun testCorruptHeader(file: File, quantize: Boolean) = withContext(Dispatchers.IO) {
+            val store = createStore(quantize)
+            val embeddings = genEmbeds(1, quantize)
+            val codec = if (quantize) {
+                QInt8EmbeddingCodec(embeddingDimension = embeddingLength, headerSize = 4)
+            } else {
+                F32EmbeddingCodec(embeddingDimension = embeddingLength, headerSize = 4)
+            }
+            store.add(embeddings)
+
+            // corrupt first 4 bytes (count header)
+            RandomAccessFile(file, "rw").use { raf ->
+                codec.writeHeader(raf.channel, Int.MAX_VALUE)
+            }
+
+            assertFailsWith<SmartScanException.InvalidEmbeddingStoreFile> {
+                store.add(listOf(embedding(2, 200, randomEmbedding(quantize))))
+            }
+        }
+
+    private suspend fun testFileNotCreatedWhenEmbedMismatch(quantize: Boolean) =
+        withContext(Dispatchers.IO) {
+            val store = createStore(quantize = quantize)
+            val embeds = genEmbeds(5, !quantize)
+            assertFailsWith<SmartScanException.InvalidEmbeddingType> {
+                store.add(embeds)
+            }
+            assertEquals(false, store.exists)
+        }
+
+
+    private suspend fun testQueryInputValidation(quantize: Boolean) = withContext(Dispatchers.IO) {
+        val store = createStore(quantize = quantize)
+        val embeds = genEmbeds(5, quantize)
+        store.add(embeds)
+
+        assertFailsWith<SmartScanException.InvalidEmbeddingDimension> {
+            val queryEmbed = if (quantize) Embedding.QInt8(
+                byteArrayOf(
+                    1.toByte(),
+                    2.toByte()
+                )
+            ) else Embedding.F32(floatArrayOf(0.1f, 0.2f))
+            store.query(queryEmbed, 1, 0.1f)
+        }
+
+        assertFailsWith<SmartScanException.InvalidEmbeddingType> {
+            val queryEmbed = randomEmbedding(!quantize)
+            store.query(queryEmbed, 1, 0.1f)
+        }
+
+        val results = store.query(embeds[0].embedding, 1, 0.8f)
+        assertEquals(1, results.ids.size)
+    }
+
+    private suspend fun testDetectsCodecMismatch(quantize: Boolean)  {
+        val store = createStore(quantize = quantize)
+        val embeds = genEmbeds(5, quantize)
+        store.add(embeds)
+
+        val invalidStore = FileEmbeddingStore(getEmbedStoreFile(quantize), embeddingLength, quantize = !quantize)
+        assertFailsWith<SmartScanException.CodecMismatch>{
+            invalidStore.get()
+        }
+    }
+
+    @Test
+    fun `add and load embeddings round trip`() = runTest {
+        testAddAndLoad(quantize = false)
+        testAddAndLoad(quantize = true)
+    }
+
+    @Test
+    fun `update modifies existing embeddings and persists changes`() = runTest {
+        testUpdate(quantize = false)
+        testUpdate(quantize = true)
+    }
+
+    @Test
+    fun `remove embeddings deletes specified ids`() = runTest {
+        testRemove(quantize = false)
+        testRemove(quantize = true)
+    }
+
+    @Test
+    fun `cache is cleared and reloads`() = runTest {
+        testCacheAndReload(quantize = false)
+        testCacheAndReload(quantize = true)
     }
 
     @Test
     fun `adding embedding with wrong length throws`() = runTest {
-        val store = createStore()
-        val bad = listOf(embedding(1, 100, floatArrayOf(1f, 2f))) // too short
-
+        val store = createStore(quantize = false)
+        val bad = listOf(embedding(1, 100, Embedding.F32(floatArrayOf(1f, 2f)))) // too short
         assertFailsWith<SmartScanException.InvalidEmbeddingDimension> {
             store.add(bad)
         }
     }
 
     @Test
-    fun `corrupt header causes IOException`() = runTest {
-        val store = createStore()
-        val embeddings = listOf(embedding(1, 100, randomEmbedding()))
-        store.add(embeddings)
-
-        // corrupt first 4 bytes (count header)
-        RandomAccessFile(File(tempDir, "embeddings.bin"), "rw").use { raf ->
-            val buf = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN)
-            buf.putInt(Int.MAX_VALUE) // absurdly large
-            buf.flip()
-            raf.channel.position(0)
-            raf.channel.write(buf)
-        }
-
-        assertFailsWith<SmartScanException.CorruptedEmbeddingStoreFile> {
-            store.add(listOf(embedding(2, 200, randomEmbedding())))
-        }
+    fun `corrupt header causes CorruptedEmbeddingStoreFile exception`() = runTest {
+        testCorruptHeader(getEmbedStoreFile(false), false)
+        testCorruptHeader(getEmbedStoreFile(true), true)
     }
 
     @Test
     fun `duplicated ids are not persisted to file`() = runTest {
-        val store = createStore()
-        val file = File(tempDir, "embeddings.bin")
-
-        val first = embedding(1L, 100, randomEmbedding())
+        val store = createStore(false)
+        val file = getEmbedStoreFile(false)
+        val first = embedding(1L, 100, randomEmbedding(false))
         store.add(listOf(first))
 
-        val duplicate = embedding(1L, 200, randomEmbedding())
+        val duplicate = embedding(1L, 200, randomEmbedding(false))
         store.add(listOf(duplicate))
 
         // cache should show a single entry (overwritten by the second add)
@@ -184,149 +348,79 @@ class FileEmbeddingStoreTest {
 
     @Test
     fun `get(ids) loads file if cache is empty`() = runTest {
-        val store = createStore()
-        val first = embedding(1L, 100, randomEmbedding())
+        val store = createStore(false)
+        val first = embedding(1L, 100, randomEmbedding(false))
         store.add(listOf(first))
 
-        val store2 = createStore()
+        val store2 = createStore(false)
 
         val loaded = store2.get(listOf(1L))
         assertEquals(1, loaded.size)
         assertEquals(1L, loaded[0].id)
     }
 
-    @Test
-    fun `update modifies existing embeddings and persists changes`() = runTest {
-        val store = createStore()
-
-        val original = listOf(
-            embedding(1L, 100, randomEmbedding()),
-            embedding(2L, 200, randomEmbedding())
-        )
-
-        store.add(original)
-
-        // Sanity check: assertion was correct after add here
-//        val originalResult = store.get()
-//
-//        assertEquals(2, originalResult.size)
-
-        val updatedEmbedding = randomEmbedding()
-        val updated = listOf(
-            embedding(1L, 999, updatedEmbedding),
-            embedding(3L, 300, randomEmbedding()) // does not exist
-        )
-
-        val updatedCount = store.update(updated)
-
-        assertEquals(1, updatedCount)
-
-        val loaded = store.get()
-
-        assertEquals(2, loaded.size)
-
-        val updatedEntry = loaded.first { it.id == 1L }
-        assertEquals(999L, updatedEntry.date)
-        assertTrue(updatedEntry.embedding.contentEquals(updatedEmbedding))
-
-        val unchangedEntry = loaded.first { it.id == 2L }
-        assertEquals(200L, unchangedEntry.date)
-    }
 
     @Test
     fun `add-remove sequence preserves full persisted state`() = runTest {
-        val store = createStore()
-
-        val firstBatch = listOf(
-            embedding(1L, 100, randomEmbedding()),
-            embedding(2L, 200, randomEmbedding())
-        )
-
-        val secondBatch = listOf(
-            embedding(3L, 300, randomEmbedding()),
-            embedding(4L, 400, randomEmbedding())
-        )
-
-        store.add(firstBatch)
-
-        // simulate fresh init state without cache
-        store.clear()
-
-        store.add(secondBatch)
-
-        // remove one item after cache was reset
-        store.remove(listOf(3L))
-
-        val result = store.get()
-
-        // Expected: first batch must still exist + second batch minus removed item
-        assertEquals(3, result.size)
-
-        assertTrue(result.any { it.id == 1L })
-        assertTrue(result.any { it.id == 2L })
-        assertTrue(result.any { it.id == 4L })
-        assertTrue(result.none { it.id == 3L })
-    }
-
-    @Test
-    fun `concurrent remove calls work`() = runTest {
-        val store = createStore()
-
-        val batch = List(100) { i ->
-            embedding(
-                (i + 1).toLong(),
-                ((i + 1) * 100).toLong(),
-                randomEmbedding()
-            )
-        }
-
-        store.add(batch)
-
-        val nRemove = batch.size / 10
-
-
-        val jobs = batch.take(nRemove).map { item ->
-            launch(Dispatchers.IO) {
-                store.remove(listOf(item.id))
-            }
-        }
-
-        jobs.joinAll()
-        store.save()
-        store.clear()
-        val result = store.get()
-
-        assertEquals(batch.size - nRemove, result.size)
-
-        val removedIds = (1..nRemove).map { it.toLong() }.toSet()
-        val expectedRemainingIds = batch.map { it.id }.toSet() - removedIds
-        val remainingIds = result.map { it.id }.toSet()
-
-        assertEquals(expectedRemainingIds, remainingIds)
+        testAddRemovePersistence(quantize = false)
+        testAddRemovePersistence(quantize = true)
     }
 
     @Test
     fun `concurrent add calls work`() = runTest {
-        val store = createStore()
+        testConcurrentAdds(quantize = false)
+        testConcurrentAdds(quantize = true)
+    }
 
-        val items = List(100) { i ->
-            embedding(
-                (i + 1).toLong(),
-                ((i + 1) * 100).toLong(),
-                randomEmbedding()
-            )
+    @Test
+    fun `quantized embeddings are x4 smaller`() = runTest {
+        val store = createStore(quantize = false)
+        val quantStore = createStore(quantize = true)
+        val embeds = genEmbeds(10000, false)
+        store.add(embeds)
+
+        val quantEmbeds = embeds.map {
+            it.copy(embedding = it.embedding.toQInt8Embed())
         }
+        quantStore.add(quantEmbeds)
 
-        val jobs = items.chunked(10).map { chunk ->
-            launch(Dispatchers.IO) {
-                store.add(chunk)
-            }
-        }
+        val embedFile = getEmbedStoreFile(quantize = false)
+        val quantEmbedFile = getEmbedStoreFile(quantize = true)
+        val ratio =
+            embedFile.readBytes().size.toDouble() / quantEmbedFile.readBytes().size.toDouble()
+        assertEquals(4, ratio.roundToInt())
+    }
 
-        jobs.joinAll()
+    @Test
+    fun `embedding store file not created when embedding mismatch`() = runTest {
+        testFileNotCreatedWhenEmbedMismatch(quantize = false)
+        testFileNotCreatedWhenEmbedMismatch(quantize = true)
+    }
 
-        val result = store.get()
+    @Test
+    fun `query method handles invalid input`() = runTest {
+        testQueryInputValidation(quantize = false)
+        testQueryInputValidation(quantize = true)
+    }
 
-        assertEquals(items.size, result.size)
+    @Test
+    fun `query method returns sims when includeSims true`() = runTest {
+        val store = createStore(quantize = false)
+        val embeds = genEmbeds(5, false)
+        store.add(embeds)
+
+        val resultsNoSim = store.query(embeds[0].embedding, 1, 0.8f)
+        assertEquals(1, resultsNoSim.ids.size)
+        assertEquals(null, resultsNoSim.sims)
+
+        val resultsWithSim = store.query(embeds[0].embedding, 1, 0.8f, includeSims = true)
+        assertEquals(1, resultsWithSim.ids.size)
+        assertEquals(1, resultsWithSim.sims?.size)
+    }
+
+    @Test
+    fun `detects codec mismatch`() = runTest {
+        testDetectsCodecMismatch(quantize = false)
+        testDetectsCodecMismatch(quantize = true)
     }
 }

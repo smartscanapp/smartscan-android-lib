@@ -1,6 +1,9 @@
 # Providers
 
-All providers implement `EmbeddingProvider<T>`. Both bundled and downloaded models are supported. The recommended way to use downloaded models is via ModelManager.
+All embedding providers implement `EmbeddingProvider<T>`. 
+All detector providers implement `DetectorProvider`.
+Both bundled and downloaded models are supported. The recommended way to use downloaded models is via ModelManager.
+
 
 ## Examples
 

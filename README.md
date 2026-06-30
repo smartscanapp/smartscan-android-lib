@@ -19,18 +19,18 @@
 
 ## **Overview**
 
-SmartScanSdk is an Android library that powers the **SmartScan app**, providing tools for:
+SmartScanSdk is an Android library that powers the **SmartScan app**, providing the following on-device capabilities:
 
-* On-device ML inference
-* Semantic search
+* Model inference
+* Model management
+* Embedding generation and storage (including quantized embeddings)
 * Indexing
-* Embedding storage
+* Semantic search
+* ANN Search (HNSW Index)
 * Incremental clustering
-* ANN Search / HNSW Index
 * Few shot classification
 * Image & video processing
 * Efficient batch processing
-* Model management
 
 
 > **Note:** The SDK is designed to be flexible, but its primary use is for the SmartScan app and other apps I am developing. It is also subject to rapid experimental changes.
@@ -70,11 +70,11 @@ implementation 'com.github.smartscanapp.smartscan-android-lib:smartscan-ml:${sma
 
 ## Quick Start
 
-Below is information on how to get started with embedding, clustering, indexing, and searching.
+Below is information on how to get started with embedding, clustering, indexing, and searching. 
 
 ### Embeddings
 
-You can use bundled or downloaded models, see [docs](docs/ml/providers.md) for more details.
+Generating embeddings requires the use of models which can either be bundled or downloaded, see [providers documentation](docs/ml/providers.md) for more details.
 
 #### Text Embeddings
 
@@ -83,8 +83,6 @@ Generate vector embeddings from text strings or batches of text for tasks such a
 **Usage Example:**
 
 ```kotlin
-//import com.fpf.smartscansdk.ml.models.providers.embeddings.clip.ClipTextEmbedder
-
 // downloaded model
 val textEmbedder = ModelManager.getTextEmbedder(application, ModelName.ALL_MINILM_L6_V2)
 
@@ -113,8 +111,6 @@ Generate vector embeddings from images (as `Bitmap`) for visual search or simila
 **Usage Example**
 
 ```kotlin
-//import com.fpf.smartscansdk.ml.models.providers.embeddings.clip.ClipImageEmbedder
-
 // downloaded model
 val imageEmbedder = ModelManager.getImageEmbedder(application, ModelName.DINOV2_SMALL)
 
@@ -133,9 +129,18 @@ val images = listOf<Bitmap>()
 val embeddings = embedBatch(context, imageEmbedder, images)
 ```
 
+___
+
+#### Embedding format conversions
+
+Several extension functions are provided to easily convert between embedding formats, see [embedding documentation](docs/core/embeddings/embedding.md/#conversion-extensions) for me details.
+
+___``
+
 ### Indexing
 
-To get started with indexing media quickly, you can use the provided `ImageIndex` and `VideoIndexer` classes as shown below. You can optionally create your own indexers (including for text related data) by extending the `BatchProcessor`. See [docs](docs/core/processors.md) for more details.
+To get started with indexing media quickly, you can use the provided `ImageIndexer` and `VideoIndexer` classes as shown below.  See [indexers documentation](docs/core/indexers.md) for more details.
+You can optionally create your own indexers by extending the `BatchProcessor`. See [processor documentation](docs/core/processors.md) for more details.
 
 #### Image Indexing
 
@@ -144,9 +149,13 @@ Index images to enable similarity search. The index is saved as a binary file an
 
 
 ```kotlin
-val imageEmbedder = ClipImageEmbedder(context, ResourceId(R.raw.image_encoder_quant_int8))
+val imageEmbedder = ClipImageEmbedder(application, ModelAssetSource.Resource(R.raw.clip_image_encoder_quant))
 val imageStore = FileEmbeddingStore(File(context.filesDir, "image_index.bin"), imageEmbedder.embeddingDim) 
 val imageIndexer = ImageIndexer(imageEmbedder, context=context, listener = null, store = imageStore) //optionally pass a listener to handle events
+
+// Optionally quantized embeddings
+//val imageIndexer = ImageIndexer(imageEmbedder, context=context,  quantize = true, listener = null, store = imageStore) //optionally pass a listener to handle events
+
 val ids = getImageIds() // placeholder function to get MediaStore image ids
 imageIndexer.run(ids)
 ```
@@ -157,18 +166,24 @@ Index videos to enable similarity search. The index is saved as a binary file an
 > **Important**: During indexing the MediaStore Id is used to as the id in the `StoredEmbedding` which is stored. This can later be used for retrieval.
 
 ```kotlin
-val imageEmbedder = ClipImageEmbedder(context, ResourceId(R.raw.image_encoder_quant_int8))
+val imageEmbedder = ClipImageEmbedder(application, ModelAssetSource.Resource(R.raw.clip_image_encoder_quant))
 val videoStore = FileEmbeddingStore(File(context.filesDir,  "video_index.bin"), imageEmbedder.embeddingDim )
 val videoIndexer = VideoIndexer(imageEmbedder, context=context, listener = null, store = videoStore, width = ClipConfig.IMAGE_SIZE_X, height = ClipConfig.IMAGE_SIZE_Y)
+// Optionally quantized embeddings
+//val videoIndexer = VideoIndexer(imageEmbedder, context=context, listener = null, quantize=true, store = videoStore, width = ClipConfig.IMAGE_SIZE_X, height = ClipConfig.IMAGE_SIZE_Y)
 val ids = getVideoIds() // placeholder function to get MediaStore video ids
 videoIndexer.run(ids)
-```
+`````
 
 ### Searching
 
-Below shows how to search using both text queries and an image. The returns results are List<Embedding>. You can use the id from each one, which corresponds to the MediaStore id, to retrieve the result images.
+You can brute force search using the `query` method from `FileEmbeddingStore` or ANN search using  the `query` method from `HNSWIndex`. See [embedding storage documentation](docs/core/embeddings/storage.md) for more details.
 
-#### Text-to-Image Search
+####  FileEmbeddingStore
+Below shows how to search using both text queries and an image. The returns results are `QueryResult`. 
+The `query` method supports using both F32 and QInt8 embeds, as well as id and date filtering. 
+
+##### Text-to-Image Search
 
  ```kotlin
 val imageStore = FileEmbeddingStore(File(context.filesDir, "image_index.bin"), imageEmbedder.embeddingDim) 
@@ -176,18 +191,18 @@ val query = "my search query"
 val embedding = textEmbedder.embed(query)
 val topK = 20
 val similarityThreshold = 0.2f
-val results = imageStore.query(embedding, topK, similarityThreshold) // returns image ids, optionally pass filter ids
+val result = imageStore.query(embedding.toF32Embed(), topK, similarityThreshold) // returns image ids, optionally pass filter ids
 
 ```
 
-#### Reverse Image Search
+##### Reverse Image Search
 
 ```kotlin
 val imageStore = FileEmbeddingStore(File(context.filesDir, "image_index.bin"), imageEmbedder.embeddingDim) 
 val embedding = imageEmbedder.embed(bitmap)
 val topK = 20
 val similarityThreshold = 0.2f
-val results = imageStore.query(embedding, topK, similarityThreshold)
+val result = imageStore.query(embedding.toF32Embed(), topK, similarityThreshold)
 ```
 
 #### ANN Search (HNSW Index)
@@ -202,7 +217,7 @@ val results = annIndex.query(embedding, topK) // returns nearest neighbour indic
 
 ### Clustering
 
-Incremental clustering groups embeddings as they are added see [docs](docs/core/clustering.md) for more details.
+Incremental clustering groups embeddings as they are added see [clustering documentation](docs/core/clustering.md) for more details.
 
 ```kotlin
 val imageStore = FileEmbeddingStore(File(context.filesDir, "image_index.bin"), imageEmbedder.embeddingDim) 
@@ -217,15 +232,16 @@ val result = clusterer.cluster(itemEmbeds)
 
 ### Core and ML
 
-core → contains all core business logic: shared interfaces, data models, embeddings, clustering, classification, indexing, and processing components for batch/concurrent execution.
+core → contains all the lightweight core business logic (indexing, embedding storage, clustering, classification etc...)
 
-ml → contains all machine learning components, including models, providers, and everything they depend on.
+ml → contains all machine learning model components and dependencies
 
 ---
 
 ### Embedding Storage
 
-The SDK only provides a file based implementation of `EmbeddingStore`, `FileEmbeddingStore` (in core) because the following benchmarks below show much better performance for loading embeddings in comparison to Room.
+The SDK only provides a file based implementation of `EmbeddingStore` (`FileEmbeddingStore`) because the following benchmarks below show much better performance for loading embeddings in comparison to Room. 
+Quantized embeddings are supported allowing for **x4 less memory usage**.
 
 #### **Benchmark Summary**
 

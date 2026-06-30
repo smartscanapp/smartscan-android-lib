@@ -10,7 +10,7 @@ interface EmbeddingStore {
     suspend fun save()
 
     suspend fun query(
-        embedding: FloatArray,
+        embedding: Embedding,
         topK: Int,
         threshold: Float,
         ids: Set<Long> = emptySet(),

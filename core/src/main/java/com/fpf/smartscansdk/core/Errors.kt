@@ -1,7 +1,10 @@
 package com.fpf.smartscansdk.core
 
 sealed class SmartScanException(message: String, cause: Throwable? = null) : Exception(message, cause) {
-    class CorruptedEmbeddingStoreFile(message: String = "Embedding store file is corrupted") : SmartScanException(message)
+    class InvalidEmbeddingStoreFile(message: String = "Invalid embedding store file", val count: Int? = null, val fileSize: Int? = null, val expectedFileSize: Int? = null) : SmartScanException(message)
+    class CodecMismatch(message: String = "Codec mismatch") : SmartScanException(message)
+
+    class InvalidEmbeddingType(message: String = "Embedding type mismatch") : SmartScanException(message)
 
     class InvalidEmbeddingDimension(message: String = "Embedding dimension mismatch") : SmartScanException(message)
 

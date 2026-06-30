@@ -11,8 +11,9 @@ ImageIndexer(
     embedder: ImageEmbeddingProvider,
     store: EmbeddingStore,
     maxImageSize: Int = 225,
+    quantize: Boolean = false,
     context: Context,
-    listener: ProcessorListener<Long, StoredEmbedding>? = null,
+    listener: ProcessorListener<Long, Pair<Long, Embedding>>? = null,
     memoryOptions: MemoryOptions = MemoryOptions(),
     batchSize: Int = 10
 )
@@ -20,20 +21,20 @@ ImageIndexer(
 
 ---
 
-### onProcess(context, item): StoredEmbedding
+### onProcess(context, item): Pair<Long, Embedding>
 
-Processes a single image item ID.
+Processes a single image media ID.
 
 Behavior:
 
-* Resolves `MediaStore.Images.Media` URI from ID
-* Loads bitmap with size constraint (`maxImageSize`)
-* Generates embedding using `ImageEmbeddingProvider`
-* Wraps result into `StoredEmbedding`
+* Resolves the `MediaStore.Images.Media` URI from the media ID.
+* Loads the bitmap using the configured maximum image size.
+* Generates an embedding using the `ImageEmbeddingProvider`.
+* Returns either an `Embedding.F32` or `Embedding.QInt8` depending on the `quantize` setting.
 
 Output:
 
-* `StoredEmbedding(id, date, embedding)`
+* `Pair<Long, Embedding>` containing the media ID and generated embedding.
 
 ---
 
@@ -41,22 +42,25 @@ Output:
 
 Behavior:
 
-* Persists batch embeddings into `EmbeddingStore`
-* Forwards batch event to listener if present
+* Retrieves the `DATE_ADDED` timestamp for each processed image.
+* Creates `StoredEmbedding` instances for the batch.
+* Persists the embeddings using the configured `EmbeddingStore`.
+* Forwards the batch event to the listener, if present.
 
 ---
 
 ### Design Notes
 
-* Optimized for batch execution via `BatchProcessor`
-* Embeddings are generated per media item ID from `MediaStore`
-* Storage is decoupled from indexing logic
+* Built on `BatchProcessor`.
+* Reads images directly from `MediaStore`.
+* Supports optional embedding quantization.
+* Storage is decoupled from embedding generation.
 
 ---
 
 ## VideoIndexer
 
-Processes video media IDs, extracts representative frames, and generates prototype embeddings.
+Processes video media IDs, generates prototype embeddings from sampled frames, and stores them in an embedding store.
 
 Constructor:
 
@@ -66,8 +70,9 @@ VideoIndexer(
     frameCount: Int = 10,
     width: Int,
     height: Int,
+    quantize: Boolean = false,
     context: Context,
-    listener: ProcessorListener<Long, StoredEmbedding>? = null,
+    listener: ProcessorListener<Long, Pair<Long, Embedding>>? = null,
     batchSize: Int = 10,
     memoryOptions: MemoryOptions = MemoryOptions(),
     store: EmbeddingStore
@@ -76,21 +81,22 @@ VideoIndexer(
 
 ---
 
-### onProcess(context, item): StoredEmbedding
+### onProcess(context, item): Pair<Long, Embedding>
 
-Processes a single video item ID.
+Processes a single video media ID.
 
 Behavior:
 
-* Resolves `MediaStore.Video.Media` URI from ID
-* Extracts frames from video
-* Resizes frames to `(width, height)`
-* Embeds frames in batch
-* Aggregates embeddings into a single prototype vector
+* Resolves the `MediaStore.Video.Media` URI from the media ID.
+* Extracts representative video frames.
+* Resizes frames to the configured dimensions.
+* Generates embeddings for each frame.
+* Produces a prototype embedding from the frame embeddings.
+* Returns either an `Embedding.F32` or `Embedding.QInt8` depending on the `quantize` setting.
 
 Output:
 
-* `StoredEmbedding(id, date, prototypeEmbedding)`
+* `Pair<Long, Embedding>` containing the media ID and generated prototype embedding.
 
 ---
 
@@ -98,14 +104,19 @@ Output:
 
 Behavior:
 
-* Persists batch embeddings into `EmbeddingStore`
-* Forwards batch event to listener if present
+* Retrieves the `DATE_ADDED` timestamp for each processed video.
+* Creates `StoredEmbedding` instances for the batch.
+* Persists the embeddings using the configured `EmbeddingStore`.
+* Forwards the batch event to the listener, if present.
 
 ---
 
 ### Design Notes
 
-* Frame-based video representation using sampled keyframes
-* Aggregates multiple frame embeddings into a single vector
-* Higher compute cost due to frame extraction and batch embedding
-* Intended for semantic video retrieval and clustering pipelines
+* Built on `BatchProcessor`.
+* Uses sampled video frames to represent video content.
+* Aggregates frame embeddings into a single prototype embedding.
+* Supports optional embedding quantization.
+* Frame extraction may fail for videos with unsupported codecs.
+* Intended for semantic retrieval, clustering, and classification pipelines.
+

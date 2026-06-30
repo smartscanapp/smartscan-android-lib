@@ -3,11 +3,13 @@ package com.fpf.smartscansdk.core.indexers
 import android.content.ContentUris
 import android.content.Context
 import android.provider.MediaStore
+import com.fpf.smartscansdk.core.embeddings.Embedding
 import com.fpf.smartscansdk.core.embeddings.StoredEmbedding
 import com.fpf.smartscansdk.core.embeddings.EmbeddingStore
 import com.fpf.smartscansdk.core.embeddings.ImageEmbeddingProvider
 import com.fpf.smartscansdk.core.embeddings.embedBatch
 import com.fpf.smartscansdk.core.embeddings.generatePrototypeEmbedding
+import com.fpf.smartscansdk.core.embeddings.toQInt8
 import com.fpf.smartscansdk.core.processors.BatchProcessor
 import com.fpf.smartscansdk.core.media.extractFramesFromVideo
 import com.fpf.smartscansdk.core.processors.ProcessorListener
@@ -24,14 +26,15 @@ class VideoIndexer(
     private val frameCount: Int = 10,
     private val width: Int,
     private val height: Int,
+    private val quantize: Boolean = false,
     context: Context,
-    listener: ProcessorListener<Long, Pair<Long, FloatArray>>? = null,
+    listener: ProcessorListener<Long, Pair<Long, Embedding>>? = null,
     batchSize: Int = 10,
     memoryOptions: MemoryOptions = MemoryOptions(),
     private val store: EmbeddingStore,
-    ): BatchProcessor<Long, Pair<Long, FloatArray>>(context, listener, memoryOptions, batchSize){
+    ): BatchProcessor<Long, Pair<Long, Embedding>>(context, listener, memoryOptions, batchSize){
 
-    override suspend fun onBatchComplete(context: Context, batch: List<Pair<Long, FloatArray>>) {
+    override suspend fun onBatchComplete(context: Context, batch: List<Pair<Long, Embedding>>) {
         val videoIdToDateMap = getVideoToDateMap(context, batch.map { it.first })
         val embedsToStore = batch.map{
             val date = videoIdToDateMap[it.first]?: System.currentTimeMillis()
@@ -41,11 +44,12 @@ class VideoIndexer(
         listener?.onBatchComplete(context, batch)
     }
 
-    override suspend fun onProcess(context: Context, item: Long): Pair<Long, FloatArray> {
+    override suspend fun onProcess(context: Context, item: Long): Pair<Long, Embedding> {
         val contentUri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, item)
         val frameBitmaps = extractFramesFromVideo(context, contentUri, width = width, height = height, frameCount = frameCount)?: throw IllegalStateException("Invalid frames")
         val rawEmbeddings = embedBatch(context, embedder, frameBitmaps)
-        val embedding: FloatArray = generatePrototypeEmbedding(rawEmbeddings)
+        val output: FloatArray = generatePrototypeEmbedding(rawEmbeddings)
+        val embedding = if(quantize) Embedding.QInt8(output.toQInt8()) else Embedding.F32(output)
         return Pair(item, embedding)
     }
 
