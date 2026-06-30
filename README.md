@@ -5,10 +5,9 @@
 * [Overview](#overview)
 * [Documentation](docs/README.md)
 * [Installation](#installation)
-* [Quick Start](#quick-start)
-
   - [1. Install Core Module](#1-install-core-module)
   - [2. Install ML Module (Optional)](#2-install-ml-module-optional)
+* [Quick Start](#quick-start)
 * [Design Choices](#design-choices)
   - [Core and ML](#core-and-ml)
   - [Embedding Storage](#embedding-storage)
@@ -135,7 +134,7 @@ ___
 
 Several extension functions are provided to easily convert between embedding formats, see [embedding documentation](docs/core/embeddings/embedding.md/#conversion-extensions) for me details.
 
-___``
+___
 
 ### Indexing
 
