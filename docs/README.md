@@ -1,9 +1,15 @@
+```md
 # Documentation
 
 ## Table of Contents
 
 ### Core
-- [Embeddings](core/embeddings.md)
+
+- **Embeddings**
+  - [Embedding](core/embeddings/embedding.md)
+  - [Providers](core/embeddings/providers.md)
+  - [Storage](core/embeddings/storage.md)
+  - [Utilities](core/embeddings/utils.md)
 - [Clustering](core/clustering.md)
 - [Classification](core/classification.md)
 - [Indexers](core/indexers.md)
@@ -11,7 +17,8 @@
 - [Media](core/media.md)
 
 ### ML
+
 - [Models](ml/models.md)
 - [Model Manager](ml/model-manager.md)
 - [Providers](ml/providers.md)
-
+```
