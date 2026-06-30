@@ -1,8 +1,8 @@
-## Cluster Documentation
+# Cluster Documentation
 
 ## Overview
 
-Incremental clustering system based on embedding similarity and approximate nearest neighbor (HNSW) search. Supports dynamic cluster creation, assignment, updating, and optional merging.
+Incremental clustering system for embedding-based similarity search and online cluster assignment.
 
 ---
 
@@ -10,10 +10,12 @@ Incremental clustering system based on embedding similarity and approximate near
 
 Stores statistical information about a cluster.
 
-* `prototypeSize: Int` — number of items in cluster
-* `meanSimilarity: Float` — running mean similarity to prototype
-* `stdSimilarity: Float` — similarity standard deviation
-* `label: String?` — optional label
+Fields:
+
+* `prototypeSize: Int` — number of embeddings represented by the prototype
+* `meanSimilarity: Float` — running mean similarity to the prototype
+* `stdSimilarity: Float` — running similarity standard deviation
+* `label: String?` — optional cluster label
 
 ---
 
@@ -21,19 +23,27 @@ Stores statistical information about a cluster.
 
 Represents a cluster.
 
-* `prototypeId: Long` — unique cluster identifier
-* `embedding: FloatArray` — centroid/prototype vector
+Fields:
+
+* `clusterId: ClusterId` — unique cluster identifier
+* `embedding: Embedding` — cluster prototype embedding
 * `metadata: ClusterMetadata` — cluster statistics
+
+Notes:
+
+* Cluster embeddings are internally converted to `Embedding.F32` by `IncrementalClusterer`, as required by the underlying HNSW index.
 
 ---
 
 ## ClusterResult
 
-Output of clustering.
+Result returned by the clustering process.
 
-* `clusters: Map<ClusterId, Cluster>` — final clusters
-* `assignments: Assignments` — item → cluster mapping
-* `merges: ClusterMerges?` — optional merge relationships
+Fields:
+
+* `clusters: Map<ClusterId, Cluster>` — resulting clusters
+* `assignments: Assignments` — item-to-cluster assignments
+* `merges: ClusterMerges?` — optional cluster merge relationships
 
 ---
 
@@ -50,13 +60,9 @@ Output of clustering.
 
 ## IncrementalClusterer
 
-### Purpose
+Performs online clustering using cosine similarity, adaptive thresholding, HNSW approximate nearest neighbour search, and voting-based assignment.
 
-Online clustering using cosine similarity, adaptive thresholds, HNSW approximate nearest neighbor search, and optional voting-based fallback.
-
----
-
-### Construction
+### Constructor
 
 ```kotlin
 IncrementalClusterer(
@@ -67,73 +73,72 @@ IncrementalClusterer(
 )
 ```
 
-* `existingClusters` — optional initial clusters
-* `defaultThreshold` — baseline similarity threshold
-* `minClusterSize` — threshold for adaptive behavior
-* `topK` — neighbors used for voting fallback
+Parameters:
+
+* `existingClusters` — optional clusters used to initialize the clusterer
+* `defaultThreshold` — baseline cosine similarity threshold
+* `minClusterSize` — minimum cluster size before adaptive thresholding is applied
+* `topK` — number of nearest neighbours used during ANN queries and voting
 
 ---
 
-### Key Methods
+### cluster(items): ClusterResult
 
-#### cluster(items: List<StoredEmbedding>): ClusterResult
+```kotlin
+cluster(items: Map<ItemId, Embedding>): ClusterResult
+```
 
-Processes embeddings incrementally and returns clustering results.
+Processes embeddings incrementally and returns the resulting clusters, assignments, and optional merge information.
+
+---
+
+### clear()
+
+Resets the clustering state.
 
 Behavior:
 
-* builds ANN index (HNSW)
-* assigns each item to best matching cluster
-* applies adaptive thresholding
-* falls back to voting when needed
-* creates new clusters if required
-* updates cluster prototypes incrementally
-* optionally performs cluster merging
-
----
-
-#### clear()
-
-Resets all clusters, assignments, and ANN state.
+* Removes all clusters.
+* Clears assignments.
+* Resets the HNSW index state.
 
 ---
 
 ## Assignment Strategy
 
-1. **Direct assignment**
-   Applied when similarity exceeds adaptive threshold
+Embeddings are assigned using the following order:
 
-2. **Voting fallback**
-   Uses top-K nearest neighbors and majority cluster vote
-
-3. **New cluster creation**
-   Used when no existing cluster matches criteria
+1. Direct similarity assignment using the adaptive threshold.
+2. Majority voting across the nearest neighbours returned by the HNSW index.
+3. Creation of a new cluster.
 
 ---
 
-## Thresholding
+## Adaptive Thresholding
 
-Adaptive threshold is derived from:
+Cluster assignment thresholds are computed using:
 
+* default threshold
 * cluster size
-* mean similarity
-* similarity variance
-* global cohesion statistics
+* cluster mean similarity
+* cluster similarity standard deviation
+* average dataset cohesion
 
-It blends a baseline threshold with statistical adjustments to stabilize clustering across varying densities.
+This allows thresholds to become more selective as clusters mature.
 
 ---
 
 ## Prototype Updates
 
-Each assignment updates:
+After each assignment:
 
-* centroid embedding (incremental mean)
-* mean similarity
-* similarity variance
+* the cluster prototype embedding is updated incrementally
+* prototype size is increased
+* mean similarity is updated
+* similarity standard deviation is updated
 
 ---
 
 ## Cluster Merging
 
-Optional post-processing step that merges clusters based on global similarity cohesion criteria.
+After clustering completes, similar clusters may be merged using a global similarity threshold derived from overall cluster cohesion statistics.
