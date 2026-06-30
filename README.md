@@ -137,8 +137,9 @@ ___
 
 #### Embedding format conversions
 
-Several extension functions are provided to easily convert between embedding formats, see [embedding documentation](docs/ml/providers.md) for me details.
+Several extension functions are provided to easily convert between embedding formats, see [embedding documentation](docs/core/embeddings/embedding.md/#conversion-extensions) for me details.
 
+___``
 
 ### Indexing
 
@@ -180,10 +181,13 @@ videoIndexer.run(ids)
 
 ### Searching
 
-Below shows how to search using both text queries and an image. The returns results are `QueryResult`. 
-The `query` method supports using both F32 and QInt8 embeds, as well as id and date filtering. See [search documentation](docs/core/search.md) for more details.
+You can brute force search using the `query` method from `FileEmbeddingStore` or ANN search using  the `query` method from `HNSWIndex`. See [embedding storage documentation](docs/core/embeddings/storage.md) for more details.
 
-#### Text-to-Image Search
+####  FileEmbeddingStore
+Below shows how to search using both text queries and an image. The returns results are `QueryResult`. 
+The `query` method supports using both F32 and QInt8 embeds, as well as id and date filtering. 
+
+##### Text-to-Image Search
 
  ```kotlin
 val imageStore = FileEmbeddingStore(File(context.filesDir, "image_index.bin"), imageEmbedder.embeddingDim) 
@@ -195,7 +199,7 @@ val result = imageStore.query(embedding.toF32Embed(), topK, similarityThreshold)
 
 ```
 
-#### Reverse Image Search
+##### Reverse Image Search
 
 ```kotlin
 val imageStore = FileEmbeddingStore(File(context.filesDir, "image_index.bin"), imageEmbedder.embeddingDim) 
