@@ -31,6 +31,9 @@ class FileEmbeddingStore(
             headerSize = HEADER_SIZE
         )
     }
+    private val tombstoneFile = File("${file.path}.tombstones")
+    private val tombstone = TombstoneStore(tombstoneFile)
+
     private val fileMutex = Mutex()
 
     private var cache: LinkedHashMap<Long, StoredEmbedding> = LinkedHashMap() // initialised in get and only updated in save
@@ -49,6 +52,22 @@ class FileEmbeddingStore(
         try {
             val (embedMap, idxMap) = codec.read(file)
             idToFileOffsetIndex = idxMap
+
+            val tombStoneIds = tombstone.read()
+            tombStoneIds.forEach {
+                embedMap.remove(it)
+                idToFileOffsetIndex.remove(it)
+            }
+
+            if(tombstone.shouldCompact(tombStoneIds.size, embedMap.size)){
+                cache = embedMap
+                codec.writeReplace(
+                    embedMap.values.toList(),
+                    idToFileOffsetIndex,
+                    file
+                )
+                tombstone.clear()
+            }
             embedMap
         }catch (e: SmartScanException.InvalidEmbeddingStoreFile){
             throw handleInvalidEmbedStoreError(e)
@@ -80,7 +99,6 @@ class FileEmbeddingStore(
             if (embeddings.isEmpty()) return@withContext 0
             if (idToFileOffsetIndex.isEmpty()) load()
 
-
             val filteredNewEmbeddings = embeddings.filterNot { it.id in idToFileOffsetIndex }
             if (filteredNewEmbeddings.isEmpty()) return@withContext 0
 
@@ -88,14 +106,19 @@ class FileEmbeddingStore(
 
             val added = codec.append(file,  filteredNewEmbeddings, idToFileOffsetIndex)
 
-            // Only add items to cache if it's not empty e.g after get() call, to keep it synchronized.
-            // This prevents edge cases that could result in partial cache overwriting on-disk data
-            // It also prevents unnecessarily keeping embeddings in memory
-            if (cache.isNotEmpty()) {
-                for (embedding in filteredNewEmbeddings) {
+
+            val recoverIds: MutableList<Long> = mutableListOf()
+            for (embedding in filteredNewEmbeddings) {
+                recoverIds.add(embedding.id)
+
+                // Only add items to cache if it's not empty e.g after get() call, to keep it synchronized.
+                // This prevents edge cases that could result in partial cache overwriting on-disk data
+                // It also prevents unnecessarily keeping embeddings in memory
+                if (cache.isNotEmpty()) {
                     cache[embedding.id] = embedding
                 }
             }
+            tombstone.recoverIfNeeded(recoverIds)
             added
         }
     }
@@ -125,6 +148,9 @@ class FileEmbeddingStore(
             if (cache.isEmpty()) cache = load()
 
             var removedCount = 0
+
+            tombstone.append(ids)
+
             for (id in ids) {
                 if (cache.remove(id) != null) {
                     idToFileOffsetIndex.remove(id)

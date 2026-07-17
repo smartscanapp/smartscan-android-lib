@@ -56,8 +56,9 @@ internal class QInt8EmbeddingCodec(
         Files.move(
             tempFile.toPath(),
             outputFile.toPath(),
-            StandardCopyOption.REPLACE_EXISTING
-        )
+            StandardCopyOption.REPLACE_EXISTING,
+            StandardCopyOption.ATOMIC_MOVE,
+            )
     }
 
     override suspend fun read(file: File ): Pair<LinkedHashMap<Long, StoredEmbedding>, MutableMap<Long, Long>> = withContext(Dispatchers.IO) {
