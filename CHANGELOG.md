@@ -1,3 +1,11 @@
+## v2.2.1 - 17/07/2026
+
+### Changed
+
+* Use tombstone-based removals in `FileEmbeddingStore` to avoid unnecessary save of potentially large files.
+
+___
+
 ## v2.2.0 - 30/06/2026
 
 ### Added
