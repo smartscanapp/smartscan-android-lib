@@ -21,6 +21,7 @@ import java.nio.ByteOrder
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 
@@ -44,6 +45,11 @@ class FileEmbeddingStoreTest {
     private fun getEmbedStoreFile(quantize: Boolean): File {
         val fileName = if (quantize) "embeddings_quant.bin" else "embeddings.bin"
         return File(tempDir, fileName)
+    }
+
+    private fun getTombStoneFile(quantize: Boolean): File {
+        val embedStoreFile = getEmbedStoreFile(quantize)
+        return File("${embedStoreFile.path}.tombstones")
     }
 
     private fun createStore(quantize: Boolean) = FileEmbeddingStore(getEmbedStoreFile(quantize), embeddingLength, quantize = quantize)
@@ -269,6 +275,49 @@ class FileEmbeddingStoreTest {
         }
     }
 
+    private suspend fun testTombStoneCompact(quantize: Boolean)  {
+        val tombStoneLimit = 100
+        val store = createStore(quantize = quantize)
+        val tombStoneFile = getTombStoneFile(quantize)
+        val embeds = genEmbeds(tombStoneLimit * 10, quantize)
+        store.add(embeds)
+
+        assertEquals(embeds.size, store.get().size)
+
+        val embedsToRemove = embeds.take(tombStoneLimit).map{it.id}
+        val firstBatch = embedsToRemove.slice(0 until tombStoneLimit - 1)
+        store.remove(firstBatch)
+
+        assertEquals(embeds.size - firstBatch.size, store.get().size)
+        assertTrue(tombStoneFile.exists())
+
+        val secondBatch = embedsToRemove.slice(tombStoneLimit - 1 until tombStoneLimit)
+        store.remove(secondBatch)
+
+        // trigger full load
+        store.clear()
+
+        assertEquals(embeds.size - embedsToRemove.size, store.get().size)
+        assertFalse(tombStoneFile.exists())
+    }
+
+    private suspend fun testRecoveryWhenAddingEmbedCurrentlyInTombstone(quantize: Boolean)  {
+        val tombStoneLimit = 100
+        val store = createStore(quantize = quantize)
+        val embeds = genEmbeds(tombStoneLimit * 10, quantize)
+        store.add(embeds)
+        assertEquals(embeds.size, store.get().size)
+
+        val embedToRemove = embeds.first()
+        store.remove(listOf(embedToRemove.id))
+        store.clear()
+        assertTrue(embedToRemove.id !in store.get().map{it.id}.toSet())
+
+        store.add(listOf(embedToRemove))
+        store.clear()
+        assertTrue(embedToRemove.id in store.get().map{it.id}.toSet())
+    }
+
     @Test
     fun `add and load embeddings round trip`() = runTest {
         testAddAndLoad(quantize = false)
@@ -422,5 +471,17 @@ class FileEmbeddingStoreTest {
     fun `detects codec mismatch`() = runTest {
         testDetectsCodecMismatch(quantize = false)
         testDetectsCodecMismatch(quantize = true)
+    }
+
+    @Test
+    fun `compaction happen when tombStone limit reached`() = runTest {
+        testTombStoneCompact(quantize = false)
+        testTombStoneCompact(quantize = true)
+    }
+
+    @Test
+    fun `recover item in tombstone when re-adding`() = runTest {
+        testRecoveryWhenAddingEmbedCurrentlyInTombstone(quantize = false)
+        testRecoveryWhenAddingEmbedCurrentlyInTombstone(quantize = true)
     }
 }
