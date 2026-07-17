@@ -31,6 +31,9 @@ class FileEmbeddingStore(
             headerSize = HEADER_SIZE
         )
     }
+    private val tombstoneFile = File("${file.path}.tombstones")
+    private val tombStone = TombstoneStore(tombstoneFile)
+
     private val fileMutex = Mutex()
 
     private var cache: LinkedHashMap<Long, StoredEmbedding> = LinkedHashMap() // initialised in get and only updated in save
@@ -49,6 +52,14 @@ class FileEmbeddingStore(
         try {
             val (embedMap, idxMap) = codec.read(file)
             idToFileOffsetIndex = idxMap
+
+            val tombStoneIds = tombStone.read()
+            tombStoneIds.forEach { embedMap.remove(it)}
+
+            if(tombStone.shouldCompact(tombStoneIds.size, embedMap.size)){
+                cache = embedMap
+                save()
+            }
             embedMap
         }catch (e: SmartScanException.InvalidEmbeddingStoreFile){
             throw handleInvalidEmbedStoreError(e)
@@ -125,6 +136,9 @@ class FileEmbeddingStore(
             if (cache.isEmpty()) cache = load()
 
             var removedCount = 0
+
+            tombStone.append(ids)
+
             for (id in ids) {
                 if (cache.remove(id) != null) {
                     idToFileOffsetIndex.remove(id)
