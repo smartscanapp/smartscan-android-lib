@@ -60,4 +60,15 @@ class TombStoneStoreTest {
         tombStone.clear()
         assertFalse(tombStone.exists)
     }
+
+    @Test
+    fun `recover item from the tombstone`() = runTest {
+        val ids = genIds(10)
+        tombStone.append(ids)
+        assertTrue(tombStone.exists)
+        val idRecover = ids.first()
+        tombStone.recoverIfNeeded(listOf(idRecover))
+
+        assertTrue(idRecover !in tombStone.read())
+    }
 }
