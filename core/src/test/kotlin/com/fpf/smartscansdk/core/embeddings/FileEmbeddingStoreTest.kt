@@ -301,6 +301,23 @@ class FileEmbeddingStoreTest {
         assertFalse(tombStoneFile.exists())
     }
 
+    private suspend fun testRecoveryWhenAddingEmbedCurrentlyInTombstone(quantize: Boolean)  {
+        val tombStoneLimit = 100
+        val store = createStore(quantize = quantize)
+        val embeds = genEmbeds(tombStoneLimit * 10, quantize)
+        store.add(embeds)
+        assertEquals(embeds.size, store.get().size)
+
+        val embedToRemove = embeds.first()
+        store.remove(listOf(embedToRemove.id))
+        store.clear()
+        assertTrue(embedToRemove.id !in store.get().map{it.id}.toSet())
+
+        store.add(listOf(embedToRemove))
+        store.clear()
+        assertTrue(embedToRemove.id in store.get().map{it.id}.toSet())
+    }
+
     @Test
     fun `add and load embeddings round trip`() = runTest {
         testAddAndLoad(quantize = false)
@@ -460,5 +477,11 @@ class FileEmbeddingStoreTest {
     fun `compaction happen when tombStone limit reached`() = runTest {
         testTombStoneCompact(quantize = false)
         testTombStoneCompact(quantize = true)
+    }
+
+    @Test
+    fun `recover item in tombstone when re-adding`() = runTest {
+        testRecoveryWhenAddingEmbedCurrentlyInTombstone(quantize = false)
+        testRecoveryWhenAddingEmbedCurrentlyInTombstone(quantize = true)
     }
 }
