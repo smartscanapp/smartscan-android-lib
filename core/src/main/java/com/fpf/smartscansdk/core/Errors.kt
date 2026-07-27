@@ -23,5 +23,5 @@ sealed class SmartScanException(message: String, cause: Throwable? = null) : Exc
     class ConfigParseFailed(message: String = "Failed to parse config", cause: Throwable? = null) : SmartScanException(message, cause)
     class InvalidInput(message: String = "Input is empty or invalid") : SmartScanException(message)
     class InferenceFailed(message: String = "Inference failed", cause: Throwable? = null) : SmartScanException(message, cause)
-
+    class UnsupportedVideoCodec(message: String = "Video codec not supported", cause: Throwable? = null) : SmartScanException(message, cause)
 }
