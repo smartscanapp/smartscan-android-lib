@@ -9,20 +9,13 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
-import kotlin.math.max
-import kotlin.math.roundToInt
 
-class TombstoneStore(
-    private val file: File,
-    private val minTombstonesBeforeCompact: Int = 100,
-    private val tombstoneRatioLimit: Float = 0.1f
-) {
 
+class TombstoneStore(private val file: File) {
     private var cache: MutableSet<Long>? = null
 
     val exists: Boolean
         get() = file.exists()
-
 
     fun read(): Set<Long> {
         cache?.let { return it }
@@ -69,16 +62,6 @@ class TombstoneStore(
             file.delete()
         }
     }
-
-    fun shouldCompact(tombstoneCount: Int, activeSize: Int): Boolean {
-        if (tombstoneCount == 0 || activeSize == 0) return false
-
-        val dynamicLimit = (tombstoneRatioLimit * activeSize).roundToInt()
-        val limit = max(dynamicLimit, minTombstonesBeforeCompact)
-
-        return tombstoneCount >= limit
-    }
-
     fun recoverIfNeeded(ids: List<Long>) {
         val tombstones = read().toMutableSet()
 

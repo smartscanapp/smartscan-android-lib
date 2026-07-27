@@ -8,6 +8,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
 import kotlin.collections.map
+import kotlin.math.max
+import kotlin.math.roundToInt
 
 class FileEmbeddingStore(
     private val file: File,
@@ -34,7 +36,8 @@ class FileEmbeddingStore(
     }
     private val tombstoneFile = File("${file.path}.tombstones")
     private val tombstone = TombstoneStore(tombstoneFile)
-
+    private val minTombstonesBeforeCompact: Int = 100
+    private val tombstoneRatioLimit: Float = 0.1f
     private val fileMutex = Mutex()
 
     private var cache: LinkedHashMap<Long, StoredEmbedding> = LinkedHashMap() // initialised in get and only updated in save
@@ -60,7 +63,7 @@ class FileEmbeddingStore(
                 idToFileOffsetIndex.remove(it)
             }
 
-            if(tombstone.shouldCompact(tombStoneIds.size, embedMap.size)){
+            if(shouldCompact(tombStoneIds.size, embedMap.size)){
                 cache = embedMap
                 codec.writeReplace(
                     embedMap.values.toList(),
@@ -242,4 +245,14 @@ class FileEmbeddingStore(
         }
         return e
     }
+
+    fun shouldCompact(tombstoneCount: Int, activeSize: Int): Boolean {
+        if (tombstoneCount == 0 || activeSize == 0) return false
+
+        val dynamicLimit = (tombstoneRatioLimit * activeSize).roundToInt()
+        val limit = max(dynamicLimit, minTombstonesBeforeCompact)
+
+        return tombstoneCount >= limit
+    }
+
 }
