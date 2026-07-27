@@ -1,6 +1,7 @@
 package com.fpf.smartscansdk.core.embeddings
 
 import com.fpf.smartscansdk.core.SmartScanException
+import com.fpf.smartscansdk.core.file.TombstoneStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex

@@ -1,4 +1,4 @@
-package com.fpf.smartscansdk.core.embeddings
+package com.fpf.smartscansdk.core.file
 
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream

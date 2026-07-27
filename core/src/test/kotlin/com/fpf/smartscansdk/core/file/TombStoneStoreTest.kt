@@ -1,10 +1,10 @@
-package com.fpf.smartscansdk.core.embeddings
+package com.fpf.smartscansdk.core.file
 
 import android.util.Log
 import io.mockk.every
 import io.mockk.mockkStatic
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -12,7 +12,6 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TombStoneStoreTest {
@@ -30,7 +29,7 @@ class TombStoneStoreTest {
     lateinit var tempDir: File
 
     private val tombStoneFile: File
-        get() = File(tempDir,  "test.tombstone")
+        get() = File(tempDir, "test.tombstone")
 
     private val tombStone: TombstoneStore
         get() = TombstoneStore(tombStoneFile)
@@ -44,11 +43,11 @@ class TombStoneStoreTest {
         tombStone.append(ids)
         val tombStonedIds = tombStone.read()
 
-        assertEquals(ids.toSet(), tombStonedIds)
+        Assertions.assertEquals(ids.toSet(), tombStonedIds)
 
         tombStone.append(ids)
         val tombStonedIdsBatch2 = tombStone.read()
-        assertEquals(ids.toSet(), tombStonedIdsBatch2)
+        Assertions.assertEquals(ids.toSet(), tombStonedIdsBatch2)
     }
 
     @Test
