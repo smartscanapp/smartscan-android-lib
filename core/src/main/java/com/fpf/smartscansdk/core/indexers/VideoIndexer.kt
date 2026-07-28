@@ -46,7 +46,7 @@ class VideoIndexer(
 
     override suspend fun onProcess(context: Context, item: Long): Pair<Long, Embedding> {
         val contentUri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, item)
-        val frameBitmaps = extractFramesFromVideo(context, contentUri, width = width, height = height, frameCount = frameCount)?: throw IllegalStateException("Invalid frames")
+        val frameBitmaps = extractFramesFromVideo(context, contentUri, width = width, height = height, frameCount = frameCount)
         val rawEmbeddings = embedBatch(context, embedder, frameBitmaps)
         val output: FloatArray = generatePrototypeEmbedding(rawEmbeddings)
         val embedding = if(quantize) Embedding.QInt8(output.toQInt8()) else Embedding.F32(output)
