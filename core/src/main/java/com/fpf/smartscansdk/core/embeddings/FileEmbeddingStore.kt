@@ -153,7 +153,7 @@ class FileEmbeddingStore(
 
             var removedCount = 0
 
-            tombstone.append(ids)
+            tombstone.append(ids.filter{it in cache})
 
             for (id in ids) {
                 if (cache.remove(id) != null) {
