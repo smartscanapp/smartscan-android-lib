@@ -2,6 +2,7 @@ package com.fpf.smartscansdk.core.embeddings
 
 import android.util.Log
 import com.fpf.smartscansdk.core.SmartScanException
+import com.fpf.smartscansdk.core.file.TombstoneStore
 import io.mockk.every
 import io.mockk.mockkStatic
 import kotlinx.coroutines.Dispatchers
@@ -318,6 +319,22 @@ class FileEmbeddingStoreTest {
         assertTrue(embedToRemove.id in store.get().map{it.id}.toSet())
     }
 
+    private suspend fun testRemoveDoesNotAddIdsNotInCacheToTombstone(quantize: Boolean)  {
+        val store = createStore(quantize = quantize)
+        val embeds = genEmbeds(100, quantize)
+        store.add(embeds)
+        assertEquals(embeds.size, store.get().size)
+
+        val nonExistentId = 3240L
+        val idsToRemove = embeds.subList(0, 10).map{it.id} + nonExistentId
+        store.remove(idsToRemove)
+
+        val tombstoneStore = TombstoneStore(getTombStoneFile(quantize))
+        val tombstonedIds = tombstoneStore.read()
+        assertTrue(nonExistentId !in tombstonedIds)
+        assertEquals(idsToRemove.size - 1, tombstonedIds.size)
+    }
+
     @Test
     fun `add and load embeddings round trip`() = runTest {
         testAddAndLoad(quantize = false)
@@ -483,5 +500,11 @@ class FileEmbeddingStoreTest {
     fun `recover item in tombstone when re-adding`() = runTest {
         testRecoveryWhenAddingEmbedCurrentlyInTombstone(quantize = false)
         testRecoveryWhenAddingEmbedCurrentlyInTombstone(quantize = true)
+    }
+
+    @Test
+    fun `ids that do not exist in cache are not added to tombstone`() = runTest {
+        testRemoveDoesNotAddIdsNotInCacheToTombstone(quantize = false)
+        testRemoveDoesNotAddIdsNotInCacheToTombstone(quantize = true)
     }
 }
