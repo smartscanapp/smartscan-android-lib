@@ -246,7 +246,7 @@ class FileEmbeddingStore(
         return e
     }
 
-    fun shouldCompact(tombstoneCount: Int, activeSize: Int): Boolean {
+    private fun shouldCompact(tombstoneCount: Int, activeSize: Int): Boolean {
         if (tombstoneCount == 0 || activeSize == 0) return false
 
         val dynamicLimit = (tombstoneRatioLimit * activeSize).roundToInt()
