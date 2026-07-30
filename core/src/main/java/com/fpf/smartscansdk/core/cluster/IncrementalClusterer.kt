@@ -1,5 +1,6 @@
 package com.fpf.smartscansdk.core.cluster
 
+import android.util.Log
 import com.fpf.smartscansdk.core.embeddings.Embedding
 import com.fpf.smartscansdk.core.embeddings.HnswIndex
 import com.fpf.smartscansdk.core.embeddings.dot
@@ -7,6 +8,7 @@ import com.fpf.smartscansdk.core.embeddings.toF32Embed
 import com.fpf.smartscansdk.core.embeddings.updatePrototypeEmbedding
 import kotlin.math.exp
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sqrt
 
@@ -17,7 +19,12 @@ class IncrementalClusterer(
     private val defaultThreshold: Float = 0.3f,
     private val minClusterSize: Int = 2,
     private val topK: Int = 5,
+    private val similarityAlpha: Float = 1f
 ) {
+
+    companion object {
+        private const val TAG = "IncrementalClusterer"
+    }
 
     // Ensure existing clusters embeds are F32
     private val clusters: MutableMap<ClusterId, Cluster> = existingClusters?.apply { values.forEach { it.embedding = it.embedding.toF32Embed() } }?.toMutableMap() ?: linkedMapOf()
@@ -117,9 +124,10 @@ class IncrementalClusterer(
 
         val x = (cluster.metadata.meanSimilarity - avgCohesion) / max(1e-6f, avgCohesion)
         val alpha = 1f / (1f + exp(-x))
-        var adaptiveThreshold = max(cluster.metadata.meanSimilarity - cluster.metadata.stdSimilarity, baseline)
-        adaptiveThreshold = alpha * adaptiveThreshold + (1f - alpha) * baseline
-        return adaptiveThreshold
+        val threshold = (cluster.metadata.meanSimilarity - cluster.metadata.stdSimilarity) * similarityAlpha.coerceIn(0.9f, 1f)
+        val adaptiveThreshold = alpha * threshold + (1f - alpha) * baseline
+//        Log.d(TAG, "threshold=$threshold, baseline=$baseline, adaptive=$adaptiveThreshold, alpha=$alpha")
+        return min(threshold, adaptiveThreshold)
     }
 
     private fun setAndAssign(itemId: ItemId, embedding: Embedding.F32) {
