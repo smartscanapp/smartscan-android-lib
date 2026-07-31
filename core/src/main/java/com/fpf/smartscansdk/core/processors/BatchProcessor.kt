@@ -76,7 +76,7 @@ abstract class BatchProcessor<Input, Output>(
         }
         catch (e: Exception) {
             val metrics = Metrics.Failure(
-                processedBeforeFailure = totalSuccess,
+                totalProcessed = totalSuccess,
                 timeElapsed = System.currentTimeMillis() - startTime,
                 error = e
             )
