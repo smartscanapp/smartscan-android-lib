@@ -4,7 +4,6 @@ import android.content.Context
 
 interface ProcessorListener<Input, Output> {
     suspend fun onActive(context: Context) = Unit
-    suspend fun onBatchComplete(context: Context, batch: List<Output>) = Unit
     suspend fun onComplete(context: Context, metrics: Metrics.Success) = Unit
     suspend fun onProgress(context: Context, progress: Float) = Unit
     fun onError(context: Context, error: Exception, item: Input) = Unit
