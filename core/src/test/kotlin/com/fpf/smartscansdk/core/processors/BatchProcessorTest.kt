@@ -59,7 +59,7 @@ class BatchProcessorTest {
 
         val metrics = processor.run(items)
 
-        assertTrue(metrics is Metrics.Success)
+        assertTrue(metrics is ProcessorResult.Success)
         assertEquals(4, metrics.totalProcessed)
 
         coVerify { mockListener.onActive(context.applicationContext) }
@@ -75,7 +75,7 @@ class BatchProcessorTest {
 
         val metrics = processor.run(items)
 
-        assertTrue(metrics is Metrics.Success)
+        assertTrue(metrics is ProcessorResult.Success)
         assertEquals(0, metrics.totalProcessed)
 
         coVerify(exactly = 0) { mockListener.onProgress(context, any()) }
@@ -89,7 +89,7 @@ class BatchProcessorTest {
 
         val metrics = processor.run(items)
 
-        assertTrue(metrics is Metrics.Success) // failures are logged but do not abort
+        assertTrue(metrics is ProcessorResult.Success) // failures are logged but do not abort
         assertEquals(2, metrics.totalProcessed) // only successful items counted
 
         coVerify {
@@ -108,7 +108,7 @@ class BatchProcessorTest {
 
         val metrics = processor.run(items)
 
-        assertTrue(metrics is Metrics.Success)
+        assertTrue(metrics is ProcessorResult.Success)
         assertEquals(2, metrics.totalProcessed)
 
         coVerify {
