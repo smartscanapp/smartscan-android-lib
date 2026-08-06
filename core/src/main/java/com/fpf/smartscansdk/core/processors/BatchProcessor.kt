@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger
 // For BatchProcessor’s use case—long-running, batched,  asynchronous processing—the Application context should be used.
 abstract class BatchProcessor<Input, Output>(
     private val context: Context,
-    protected val listener: ProcessorListener<Input, Output>? = null,
+    protected val listener: ProcessorListener<Input>? = null,
     private val memoryOptions: MemoryOptions = MemoryOptions(),
     val batchSize: Int = 10
 ) {
@@ -21,7 +21,7 @@ abstract class BatchProcessor<Input, Output>(
         const val TAG = "BatchProcessor"
     }
 
-    open suspend fun run(items: List<Input>): Metrics = withContext(Dispatchers.IO) {
+    suspend fun run(items: List<Input>): ProcessorResult = withContext(Dispatchers.IO) {
         val processedCount = AtomicInteger(0)
         val startTime = System.currentTimeMillis()
         var totalSuccess = 0
@@ -29,9 +29,9 @@ abstract class BatchProcessor<Input, Output>(
         try {
             if (items.isEmpty()) {
                 Log.w(TAG, "No items to process.")
-                val metrics = Metrics.Success()
-                listener?.onComplete(context.applicationContext, metrics)
-                return@withContext metrics
+                val processorResult = ProcessorResult.Success()
+                listener?.onComplete(context.applicationContext, processorResult)
+                return@withContext processorResult
             }
 
             val memoryUtils = Memory(context.applicationContext, memoryOptions)
@@ -66,22 +66,22 @@ abstract class BatchProcessor<Input, Output>(
             }
 
             val endTime = System.currentTimeMillis()
-            val metrics = Metrics.Success(totalSuccess, timeElapsed = endTime - startTime)
+            val processorResult = ProcessorResult.Success(totalSuccess, timeElapsed = endTime - startTime)
 
-            listener?.onComplete(context.applicationContext, metrics)
-            metrics
+            listener?.onComplete(context.applicationContext, processorResult)
+            processorResult
         }
         catch (e: CancellationException) {
             throw e
         }
         catch (e: Exception) {
-            val metrics = Metrics.Failure(
+            val processorResult = ProcessorResult.Failure(
                 totalProcessed = totalSuccess,
                 timeElapsed = System.currentTimeMillis() - startTime,
                 error = e
             )
-            listener?.onFail(context.applicationContext, metrics)
-            metrics
+            listener?.onFail(context.applicationContext, processorResult)
+            processorResult
         }
     }
 
