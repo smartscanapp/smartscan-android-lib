@@ -7,7 +7,6 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkStatic
-import io.mockk.verify
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -93,7 +92,7 @@ class BatchProcessorTest {
         assertTrue(metrics is Metrics.Success) // failures are logged but do not abort
         assertEquals(2, metrics.totalProcessed) // only successful items counted
 
-        verify {
+        coVerify {
             mockListener.onError(
                 context.applicationContext,
                 match { it.message?.contains("Failed item") == true },
