@@ -21,7 +21,7 @@ abstract class BatchProcessor<Input, Output>(
         const val TAG = "BatchProcessor"
     }
 
-    open suspend fun run(items: List<Input>): ProcessorResult = withContext(Dispatchers.IO) {
+    suspend fun run(items: List<Input>): ProcessorResult = withContext(Dispatchers.IO) {
         val processedCount = AtomicInteger(0)
         val startTime = System.currentTimeMillis()
         var totalSuccess = 0
