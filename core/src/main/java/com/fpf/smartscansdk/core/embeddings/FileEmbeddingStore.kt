@@ -21,8 +21,7 @@ class FileEmbeddingStore(
     companion object {
         const val TAG = "FileEmbeddingStore"
         private const val HEADER_SIZE = 4
-
-        fun getTombstonePath(embedStoreFile: File): String = "${embedStoreFile.path}.tombstones"
+        fun getTombstoneFile(embedStoreFile: File): File = File("${embedStoreFile.path}.tombstones")
     }
 
     private val codec = if(quantize){
@@ -36,7 +35,7 @@ class FileEmbeddingStore(
             headerSize = HEADER_SIZE
         )
     }
-    private val tombstoneFile = File(getTombstonePath(file))
+    private val tombstoneFile = getTombstoneFile(file)
     private val tombstone = TombstoneStore(tombstoneFile)
     private val minTombstonesBeforeCompact: Int = 100
     private val tombstoneRatioLimit: Float = 0.1f
