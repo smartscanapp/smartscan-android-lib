@@ -51,6 +51,7 @@ class FileEmbeddingStore(
         val embeddingsList = get()
         if(embeddingsList.isEmpty()) return@withContext
         codec.writeReplace(embeddingsList, idToFileOffsetIndex, file)
+        tombstone.clear()
     }
 
     private suspend fun load(): LinkedHashMap<Long, StoredEmbedding> = withContext(Dispatchers.IO) {
