@@ -10,7 +10,6 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicInteger
 
-// For BatchProcessor’s use case—long-running, batched,  asynchronous processing—the Application context should be used.
 abstract class BatchProcessor<Input, Output>(
     private val context: Context,
     protected val listener: ProcessorListener<Input>? = null,
@@ -47,10 +46,9 @@ abstract class BatchProcessor<Input, Output>(
                         semaphore.withPermit {
                             try {
                                 val output = onProcess(context.applicationContext, item)
-                                output
+                                item to Result.success(output)
                             } catch (e: Exception) {
-                                listener?.onError(context.applicationContext, e, item)
-                                null
+                                item to Result.failure(e)
                             }finally {
                                 val current = processedCount.incrementAndGet()
                                 val progress = current.toFloat() / items.size
@@ -60,9 +58,28 @@ abstract class BatchProcessor<Input, Output>(
                     }
                 }
 
-                val outputBatch = deferredResults.mapNotNull { it.await() }
-                totalSuccess += outputBatch.size
-                onBatchComplete(context.applicationContext, outputBatch)
+                val successfulResults = mutableListOf<Output>()
+
+                try {
+                    for (deferred in deferredResults) {
+                        val result = deferred.await()
+                        if (result.second.isSuccess) {
+                            successfulResults += result.second.getOrThrow()
+                        } else {
+                            val error = result.second.exceptionOrNull() as Exception
+                            listener?.onError(context.applicationContext, error, result.first)
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Fatal item error, cancel all remaining in batch
+                    deferredResults.forEach {
+                        it.cancel()
+                    }
+                    throw e
+                }
+
+                totalSuccess += successfulResults.size
+                onBatchComplete(context.applicationContext, successfulResults)
             }
 
             val endTime = System.currentTimeMillis()
@@ -94,8 +111,4 @@ abstract class BatchProcessor<Input, Output>(
     protected abstract suspend fun onBatchComplete(context: Context, batch: List<Output>)
 
 }
-
-
-
-
 
