@@ -89,6 +89,7 @@ abstract class BatchProcessor<Input, Output>(
             processorResult
         }
         catch (e: CancellationException) {
+            listener?.onCancel(context.applicationContext)
             throw e
         }
         catch (e: Exception) {
