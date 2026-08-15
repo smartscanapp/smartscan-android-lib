@@ -1,4 +1,4 @@
-## v2.3.0 - 11/08/2026
+## v3.0.0 - 11/08/2026
 
 ### Added
 
@@ -7,6 +7,7 @@
 
 ### Changed
 
+* Improved handling of fatal errors in batch
 * Rename Metrics to ProcessorResult (breaking)
 * Changed how threshold is calculated for incremental clusterer, which improves adaptability
 * Made `onError` method in `ProcessorListener` suspend
