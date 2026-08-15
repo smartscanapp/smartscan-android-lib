@@ -21,6 +21,7 @@ class FileEmbeddingStore(
     companion object {
         const val TAG = "FileEmbeddingStore"
         private const val HEADER_SIZE = 4
+        fun getTombstoneFile(embedStoreFile: File): File = File("${embedStoreFile.path}.tombstones")
     }
 
     private val codec = if(quantize){
@@ -34,7 +35,7 @@ class FileEmbeddingStore(
             headerSize = HEADER_SIZE
         )
     }
-    private val tombstoneFile = File("${file.path}.tombstones")
+    private val tombstoneFile = getTombstoneFile(file)
     private val tombstone = TombstoneStore(tombstoneFile)
     private val minTombstonesBeforeCompact: Int = 100
     private val tombstoneRatioLimit: Float = 0.1f
@@ -49,6 +50,7 @@ class FileEmbeddingStore(
         val embeddingsList = get()
         if(embeddingsList.isEmpty()) return@withContext
         codec.writeReplace(embeddingsList, idToFileOffsetIndex, file)
+        tombstone.clear()
     }
 
     private suspend fun load(): LinkedHashMap<Long, StoredEmbedding> = withContext(Dispatchers.IO) {

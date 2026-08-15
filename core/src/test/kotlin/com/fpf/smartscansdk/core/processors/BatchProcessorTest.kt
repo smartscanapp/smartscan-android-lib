@@ -7,7 +7,6 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkStatic
-import io.mockk.verify
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -17,7 +16,7 @@ import kotlin.test.assertTrue
 class BatchProcessorTest {
 
     private lateinit var context: Context
-    private lateinit var mockListener: ProcessorListener<Int, Int>
+    private lateinit var mockListener: ProcessorListener<Int>
 
     @BeforeEach
     fun setup() {
@@ -37,7 +36,7 @@ class BatchProcessorTest {
     // Simple concrete subclass for testing
     class TestProcessor(
         context: Context,
-        listener: ProcessorListener<Int, Int>,
+        listener: ProcessorListener<Int>,
         private val failOn: Set<Int> = emptySet(),
         memoryOptions: MemoryOptions = MemoryOptions(),
         batchSize: Int = 2
@@ -60,7 +59,7 @@ class BatchProcessorTest {
 
         val metrics = processor.run(items)
 
-        assertTrue(metrics is Metrics.Success)
+        assertTrue(metrics is ProcessorResult.Success)
         assertEquals(4, metrics.totalProcessed)
 
         coVerify { mockListener.onActive(context.applicationContext) }
@@ -76,7 +75,7 @@ class BatchProcessorTest {
 
         val metrics = processor.run(items)
 
-        assertTrue(metrics is Metrics.Success)
+        assertTrue(metrics is ProcessorResult.Success)
         assertEquals(0, metrics.totalProcessed)
 
         coVerify(exactly = 0) { mockListener.onProgress(context, any()) }
@@ -90,10 +89,10 @@ class BatchProcessorTest {
 
         val metrics = processor.run(items)
 
-        assertTrue(metrics is Metrics.Success) // failures are logged but do not abort
+        assertTrue(metrics is ProcessorResult.Success) // failures are logged but do not abort
         assertEquals(2, metrics.totalProcessed) // only successful items counted
 
-        verify {
+        coVerify {
             mockListener.onError(
                 context.applicationContext,
                 match { it.message?.contains("Failed item") == true },
@@ -109,7 +108,7 @@ class BatchProcessorTest {
 
         val metrics = processor.run(items)
 
-        assertTrue(metrics is Metrics.Success)
+        assertTrue(metrics is ProcessorResult.Success)
         assertEquals(2, metrics.totalProcessed)
 
         coVerify {

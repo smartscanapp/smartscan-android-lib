@@ -1,3 +1,24 @@
+## v3.0.0 - 11/08/2026
+
+### Added
+
+* Added tombstone-based removals for `FileEmbeddingStore`
+* Added VideoCodecError
+
+### Changed
+
+* Improved handling of fatal errors in batch
+* Rename Metrics to ProcessorResult (breaking)
+* Changed how threshold is calculated for incremental clusterer, which improves adaptability
+* Made `onError` method in `ProcessorListener` suspend
+
+### Removed
+
+* Remove indexers (breaking)
+* Remove `onBatchComplete` method from `ProcessorListener`
+
+ ___
+
 ## v2.2.1 - 17/07/2026
 
 ### Changed
