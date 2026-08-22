@@ -88,7 +88,7 @@ class FileEmbeddingStore(
         }
     }
 
-    suspend fun get(ids: List<Long>): List<StoredEmbedding> = fileMutex.withLock {
+    override suspend fun get(ids: List<Long>): List<StoredEmbedding> = fileMutex.withLock {
         withContext(Dispatchers.IO) {
             if (cache.isEmpty()) cache = load()
             val storedEmbeddings = mutableListOf<StoredEmbedding>()
