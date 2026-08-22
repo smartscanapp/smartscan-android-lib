@@ -36,7 +36,10 @@ internal class DetectionEngine(
         is ModelAssetSource.LocalFile -> OnnxModel(FileLoader(modelSource.file))
     }
 
-    suspend fun initialize() = model.loadModel()
+    suspend fun initialize() {
+        if(isInitialized()) return
+        model.loadModel()
+    }
 
     fun isInitialized() = model.isLoaded()
 

@@ -40,7 +40,10 @@ class ClipTextEmbedder(
     override val embeddingDim: Int = 512
     override val maxTokens: Int = 77
 
-    override suspend fun initialize() = model.loadModel()
+    override suspend fun initialize() {
+        if(isInitialized()) return
+        model.loadModel()
+    }
 
     override fun isInitialized() = model.isLoaded()
 

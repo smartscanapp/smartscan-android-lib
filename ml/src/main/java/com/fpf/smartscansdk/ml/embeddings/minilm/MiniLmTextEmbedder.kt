@@ -39,12 +39,12 @@ class MiniLMTextEmbedder(
 
     override val embeddingDim: Int = 384
 
-    override suspend fun initialize()  {
+    override suspend fun initialize() {
+        if(isInitialized()) return
         model.loadModel()
     }
 
     override fun isInitialized() = model.isLoaded()
-
 
     override suspend fun embed(data: String): FloatArray = withContext(Dispatchers.Default) {
         if (!isInitialized()) throw SmartScanException.ModelNotInitialised()
@@ -85,6 +85,5 @@ class MiniLMTextEmbedder(
         }
     }
 
-    override fun closeSession()  = model.close()
-
+    override fun closeSession() = model.close()
 }
