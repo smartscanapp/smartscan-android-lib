@@ -3,6 +3,8 @@ package com.fpf.smartscansdk.core.embeddings
 import android.app.Application
 import android.content.Context
 import com.fpf.smartscansdk.core.processors.BatchProcessor
+import com.fpf.smartscansdk.core.processors.ProcessorListener
+import com.fpf.smartscansdk.core.processors.ProcessorResult
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
@@ -216,10 +218,19 @@ fun sumEmbeddings(embeddings: List<Embedding>): FloatArray {
     return sum
 }
 
+// Supports large batches
 suspend fun <T>embedBatch(context: Context, embedder: EmbeddingProvider<T>, data: List<T>): List<FloatArray> {
     val allEmbeddings = mutableListOf<FloatArray>()
-
-    val processor = object : BatchProcessor<T, FloatArray>(context = context.applicationContext as Application) {
+    // Basic listener to propagate errors to caller
+    val listener = object : ProcessorListener<T>{
+        override suspend fun onError(context: Context, error: Exception, item: T) {
+            throw error
+        }
+        override suspend fun onFail(context: Context, result: ProcessorResult.Failure) {
+            throw result.error
+        }
+    }
+    val processor = object : BatchProcessor<T, FloatArray>(context = context.applicationContext as Application, listener = listener) {
         override suspend fun onProcess(context: Context, item: T): FloatArray {
             return embedder.embed(item)
         }
