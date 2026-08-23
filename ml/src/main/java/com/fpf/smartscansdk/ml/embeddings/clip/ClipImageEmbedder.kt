@@ -37,7 +37,10 @@ class ClipImageEmbedder(
 
     override val embeddingDim: Int = 512
 
-    override suspend fun initialize() = model.loadModel()
+    override suspend fun initialize() {
+        if(isInitialized()) return
+        model.loadModel()
+    }
 
     override fun isInitialized() = model.isLoaded()
 

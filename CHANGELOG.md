@@ -1,4 +1,16 @@
-## v3.0.0 - 11/08/2026
+## v3.0.1 - 23/08/2026
+
+### Added
+
+* Added single-item overloads in `EmbeddingStore`
+
+### Changed
+* Updated `initialize` method in embedders to early exit if already initialised
+* Updated `embedBatch` to propagate errors
+
+___
+
+## v3.0.0 - 15/08/2026
 
 ### Added
 
