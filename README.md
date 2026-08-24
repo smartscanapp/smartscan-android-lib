@@ -23,7 +23,6 @@ SmartScanSdk is an Android library that powers the **SmartScan app**, providing 
 * Model inference
 * Model management
 * Embedding generation and storage (including quantized embeddings)
-* Indexing
 * Semantic search
 * ANN Search (HNSW Index)
 * Incremental clustering
@@ -101,8 +100,6 @@ val texts = listOf("first sentence", "second sentence")
 val embeddings = embedBatch(context, textEmbedder, texts)
 ```
 
----
-
 #### Image Embeddings
 
 Generate vector embeddings from images (as `Bitmap`) for visual search or similarity tasks.
@@ -120,7 +117,6 @@ val embedding = imageEmbedder.embed(bitmap)
 
 ```
 
-
 **Batch Example:**
 
 ```kotlin
@@ -135,44 +131,6 @@ ___
 Several extension functions are provided to easily convert between embedding formats, see [embedding documentation](docs/core/embeddings/embedding.md/#conversion-extensions) for me details.
 
 ___
-
-### Indexing
-
-To get started with indexing media quickly, you can use the provided `ImageIndexer` and `VideoIndexer` classes as shown below.  See [indexers documentation](docs/core/indexers.md) for more details.
-You can optionally create your own indexers by extending the `BatchProcessor`. See [processor documentation](docs/core/processors.md) for more details.
-
-#### Image Indexing
-
-Index images to enable similarity search. The index is saved as a binary file and managed with a FileEmbeddingStore.
-> **Important**: During indexing the MediaStore Id is used to as the id in the `StoredEmbedding` which is stored. This can later be used for retrieval.
-
-
-```kotlin
-val imageEmbedder = ClipImageEmbedder(application, ModelAssetSource.Resource(R.raw.clip_image_encoder_quant))
-val imageStore = FileEmbeddingStore(File(context.filesDir, "image_index.bin"), imageEmbedder.embeddingDim) 
-val imageIndexer = ImageIndexer(imageEmbedder, context=context, listener = null, store = imageStore) //optionally pass a listener to handle events
-
-// Optionally quantized embeddings
-//val imageIndexer = ImageIndexer(imageEmbedder, context=context,  quantize = true, listener = null, store = imageStore) //optionally pass a listener to handle events
-
-val ids = getImageIds() // placeholder function to get MediaStore image ids
-imageIndexer.run(ids)
-```
-
-#### Video Indexing
-
-Index videos to enable similarity search. The index is saved as a binary file and managed with a FileEmbeddingStore.
-> **Important**: During indexing the MediaStore Id is used to as the id in the `StoredEmbedding` which is stored. This can later be used for retrieval.
-
-```kotlin
-val imageEmbedder = ClipImageEmbedder(application, ModelAssetSource.Resource(R.raw.clip_image_encoder_quant))
-val videoStore = FileEmbeddingStore(File(context.filesDir,  "video_index.bin"), imageEmbedder.embeddingDim )
-val videoIndexer = VideoIndexer(imageEmbedder, context=context, listener = null, store = videoStore, width = ClipConfig.IMAGE_SIZE_X, height = ClipConfig.IMAGE_SIZE_Y)
-// Optionally quantized embeddings
-//val videoIndexer = VideoIndexer(imageEmbedder, context=context, listener = null, quantize=true, store = videoStore, width = ClipConfig.IMAGE_SIZE_X, height = ClipConfig.IMAGE_SIZE_Y)
-val ids = getVideoIds() // placeholder function to get MediaStore video ids
-videoIndexer.run(ids)
-`````
 
 ### Searching
 
@@ -214,6 +172,8 @@ val topK = 5
 val results = annIndex.query(embedding, topK) // returns nearest neighbour indices must map to item id
 ```
 
+___
+
 ### Clustering
 
 Incremental clustering groups embeddings as they are added see [clustering documentation](docs/core/clustering.md) for more details.
@@ -225,6 +185,7 @@ val existingClusters: Map<Long, Cluster> = emptyMap() // optionally pass existin
 val clusterer = IncrementalClusterer(existingClusters = existingClusters, defaultThreshold = 0.4f)
 val result = clusterer.cluster(itemEmbeds)
 ```
+
 ---
 
 ## Design Choices

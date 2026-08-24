@@ -11,7 +11,6 @@
   - [Utilities](core/embeddings/utils.md)
 * [Clustering](core/clustering.md)
 * [Classification](core/classification.md)
-* [Indexers](core/indexers.md)
 * [Processors](core/processors.md)
 * [Media](core/media.md)
 
