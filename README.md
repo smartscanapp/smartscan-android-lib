@@ -124,8 +124,6 @@ val images = listOf<Bitmap>()
 val embeddings = embedBatch(context, imageEmbedder, images)
 ```
 
-___
-
 #### Embedding format conversions
 
 Several extension functions are provided to easily convert between embedding formats, see [embedding documentation](docs/core/embeddings/embedding.md/#conversion-extensions) for me details.
