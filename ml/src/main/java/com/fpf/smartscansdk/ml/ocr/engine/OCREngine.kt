@@ -1,6 +1,5 @@
 package com.fpf.smartscansdk.ml.ocr.engine
 
-import android.content.Context
 import android.graphics.Bitmap
 import com.fpf.smartscansdk.core.SmartScanException
 import com.fpf.smartscansdk.core.media.imdecodeBGR
@@ -12,7 +11,6 @@ import com.fpf.smartscansdk.ml.ocr.postprocess.BoxSorter
 import com.fpf.smartscansdk.ml.ocr.postprocess.QuadTextCrop
 
 internal class OCREngine(
-    context: Context,
     detModelAsset: ModelAssetSource,
     recModelAsset: ModelAssetSource,
     recConfigAsset: ModelAssetSource,
@@ -24,9 +22,9 @@ internal class OCREngine(
 
 
     init {
-        val recConfig = ModelConfig.parse(context, recConfigAsset)
-        detectionEngine = DetectionEngine(context, detModelAsset, config)
-        recognitionEngine = RecognitionEngine(context, recModelAsset, recConfig.characterList)
+        val recConfig = ModelConfig.parse( recConfigAsset)
+        detectionEngine = DetectionEngine( detModelAsset, config)
+        recognitionEngine = RecognitionEngine( recModelAsset, recConfig.characterList)
     }
 
     suspend fun initialize() {

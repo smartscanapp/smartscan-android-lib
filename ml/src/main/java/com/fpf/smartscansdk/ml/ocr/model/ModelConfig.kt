@@ -8,10 +8,10 @@ internal data class ModelConfig(
     val characterList: List<String>,
 ) {
     companion object {
-        fun parse(context: Context, assetSource: ModelAssetSource): ModelConfig {
+        fun parse(assetSource: ModelAssetSource): ModelConfig {
             val content = try {
                 val reader = when(assetSource){
-                    is ModelAssetSource.Resource -> context.resources.openRawResource(assetSource.resId).bufferedReader()
+                    is ModelAssetSource.Resource -> assetSource.resources.openRawResource(assetSource.resId).bufferedReader()
                     is ModelAssetSource.LocalFile -> assetSource.file.bufferedReader()
                 }
                 reader.use { it.readText() }

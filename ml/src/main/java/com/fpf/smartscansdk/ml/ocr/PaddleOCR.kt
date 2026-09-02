@@ -1,6 +1,5 @@
 package com.fpf.smartscansdk.ml.ocr
 
-import android.content.Context
 import android.graphics.Bitmap
 import com.fpf.smartscansdk.core.SmartScanException
 import com.fpf.smartscansdk.ml.models.ModelAssetSource
@@ -16,16 +15,13 @@ class PaddleOCR private constructor(
     companion object {
 
         suspend fun create(
-            context: Context,
             config: PaddleOCRConfig,
             detModelAssetSource: ModelAssetSource,
             recModelAssetSource: ModelAssetSource,
             recConfigAssetSource: ModelAssetSource,
         ): PaddleOCR {
-            val appContext = context.applicationContext
             return withContext(Dispatchers.IO) {
                 val engine = OCREngine(
-                    appContext,
                     detModelAsset = detModelAssetSource,
                     recModelAsset = recModelAssetSource,
                     recConfigAsset = recConfigAssetSource,

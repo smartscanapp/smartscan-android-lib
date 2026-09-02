@@ -1,7 +1,6 @@
 package com.fpf.smartscansdk.ml.detectors
 
 import ai.onnxruntime.OnnxTensor
-import android.content.Context
 import android.graphics.Bitmap
 import androidx.core.graphics.scale
 import com.fpf.smartscansdk.core.SmartScanException
@@ -18,7 +17,6 @@ import java.nio.ByteOrder
 import java.nio.FloatBuffer
 
 class FaceDetector(
-    context: Context,
     modelSource: ModelAssetSource,
     private val confThreshold: Float = 0.5f,
     private val nmsThreshold: Float = 0.3f
@@ -33,7 +31,7 @@ class FaceDetector(
     }
 
     private val model: OnnxModel = when(modelSource) {
-        is ModelAssetSource.Resource -> OnnxModel(ResourceLoader(context.resources, modelSource.resId))
+        is ModelAssetSource.Resource -> OnnxModel(ResourceLoader(modelSource.resources, modelSource.resId))
         is ModelAssetSource.LocalFile -> OnnxModel(FileLoader(modelSource.file))
     }
 
