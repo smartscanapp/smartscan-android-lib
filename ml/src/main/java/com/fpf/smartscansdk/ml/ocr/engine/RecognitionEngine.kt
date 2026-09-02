@@ -13,7 +13,6 @@ import com.fpf.smartscansdk.ml.ocr.preprocess.RecPreprocessor
 import java.nio.FloatBuffer
 
 internal class RecognitionEngine(
-    context: Context,
     modelSource: ModelAssetSource,
     private val characterList: List<String>,
 ) {
@@ -27,7 +26,7 @@ internal class RecognitionEngine(
     )
 
     private val model: OnnxModel = when(modelSource) {
-        is ModelAssetSource.Resource -> OnnxModel(ResourceLoader(context.resources, modelSource.resId))
+        is ModelAssetSource.Resource -> OnnxModel(ResourceLoader(modelSource.resources, modelSource.resId))
         is ModelAssetSource.LocalFile -> OnnxModel(FileLoader(modelSource.file))
     }
 
