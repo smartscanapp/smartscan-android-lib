@@ -28,9 +28,9 @@ class BatchProcessorTest {
         every { Log.i(any<String>(), any<String>()) } returns 0
         every { Log.w(any<String>(), any<String>()) } returns 0
 
-        // Mock Memory constructor to avoid real memory checks
-        mockkConstructor(Memory::class)
-        every { anyConstructed<Memory>().calculateConcurrencyLevel() } returns 2
+        // Mock ConcurrencyController constructor to avoid real memory checks
+        mockkConstructor(ConcurrencyController::class)
+        every { anyConstructed<ConcurrencyController>().calculateConcurrencyLevel() } returns 2
     }
 
     // Simple concrete subclass for testing
