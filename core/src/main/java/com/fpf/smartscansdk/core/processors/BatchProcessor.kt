@@ -29,13 +29,13 @@ abstract class BatchProcessor<Input, Output>(
             if (items.isEmpty()) {
                 Log.w(TAG, "No items to process.")
                 val processorResult = ProcessorResult.Success()
-                listener?.onComplete(context.applicationContext, processorResult)
+                listener?.onComplete(processorResult)
                 return@withContext processorResult
             }
 
             val memoryUtils = Memory(context.applicationContext, memoryOptions)
 
-            listener?.onActive(context.applicationContext)
+            listener?.onActive()
 
             for (batch in items.chunked(batchSize)) {
                 val currentConcurrency = memoryUtils.calculateConcurrencyLevel()
@@ -52,7 +52,7 @@ abstract class BatchProcessor<Input, Output>(
                             }finally {
                                 val current = processedCount.incrementAndGet()
                                 val progress = current.toFloat() / items.size
-                                listener?.onProgress(context.applicationContext, progress)
+                                listener?.onProgress(progress)
                             }
                         }
                     }
@@ -67,7 +67,7 @@ abstract class BatchProcessor<Input, Output>(
                             successfulResults += result.second.getOrThrow()
                         } else {
                             val error = result.second.exceptionOrNull() as Exception
-                            listener?.onError(context.applicationContext, error, result.first)
+                            listener?.onError(error, result.first)
                         }
                     }
                 } catch (e: Exception) {
@@ -85,11 +85,11 @@ abstract class BatchProcessor<Input, Output>(
             val endTime = System.currentTimeMillis()
             val processorResult = ProcessorResult.Success(totalSuccess, timeElapsed = endTime - startTime)
 
-            listener?.onComplete(context.applicationContext, processorResult)
+            listener?.onComplete(processorResult)
             processorResult
         }
         catch (e: CancellationException) {
-            listener?.onCancel(context.applicationContext)
+            listener?.onCancel()
             throw e
         }
         catch (e: Exception) {
@@ -98,7 +98,7 @@ abstract class BatchProcessor<Input, Output>(
                 timeElapsed = System.currentTimeMillis() - startTime,
                 error = e
             )
-            listener?.onFail(context.applicationContext, processorResult)
+            listener?.onFail(processorResult)
             processorResult
         }
     }
