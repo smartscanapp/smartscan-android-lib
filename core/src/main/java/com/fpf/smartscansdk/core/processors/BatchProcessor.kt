@@ -1,7 +1,5 @@
 package com.fpf.smartscansdk.core.processors
 
-import android.content.Context
-import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -11,14 +9,10 @@ import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicInteger
 
 abstract class BatchProcessor<Input, Output>(
-    private val context: Context,
     protected val listener: ProcessorListener<Input>? = null,
     protected val concurrency: Concurrency = Concurrency.Fixed(1),
     protected val batchSize: Int = 10
 ) {
-    companion object {
-        const val TAG = "BatchProcessor"
-    }
 
     suspend fun run(items: List<Input>): ProcessorResult = withContext(Dispatchers.IO) {
         val processedCount = AtomicInteger(0)
@@ -27,7 +21,6 @@ abstract class BatchProcessor<Input, Output>(
 
         try {
             if (items.isEmpty()) {
-                Log.w(TAG, "No items to process.")
                 val processorResult = ProcessorResult.Success()
                 listener?.onComplete(processorResult)
                 return@withContext processorResult
@@ -45,7 +38,7 @@ abstract class BatchProcessor<Input, Output>(
                     async {
                         semaphore.withPermit {
                             try {
-                                val output = onProcess(context.applicationContext, item)
+                                val output = onProcess(item)
                                 item to Result.success(output)
                             } catch (e: Exception) {
                                 item to Result.failure(e)
@@ -79,7 +72,7 @@ abstract class BatchProcessor<Input, Output>(
                 }
 
                 totalSuccess += successfulResults.size
-                onBatchComplete(context.applicationContext, successfulResults)
+                onBatchComplete(successfulResults)
             }
 
             val endTime = System.currentTimeMillis()
@@ -103,13 +96,9 @@ abstract class BatchProcessor<Input, Output>(
         }
     }
 
-    // Subclasses must implement this
-    protected abstract suspend fun onProcess(context: Context, item: Input): Output
+    protected abstract suspend fun onProcess(item: Input): Output
 
-    // Forces all SDK users to consciously handle batch events rather than optionally relying on listeners.
-    // This can prevent subtle bugs where batch-level behavior is forgotten.
-    // Subclasses can optionally delegate to listener (client app) by simply calling listener.onBatchComplete in implementation
-    protected abstract suspend fun onBatchComplete(context: Context, batch: List<Output>)
+    protected abstract suspend fun onBatchComplete(batch: List<Output>)
 
 }
 
