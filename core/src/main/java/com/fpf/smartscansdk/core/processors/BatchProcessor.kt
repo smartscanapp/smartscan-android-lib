@@ -13,8 +13,8 @@ import java.util.concurrent.atomic.AtomicInteger
 abstract class BatchProcessor<Input, Output>(
     private val context: Context,
     protected val listener: ProcessorListener<Input>? = null,
-    private val memoryOptions: MemoryOptions = MemoryOptions(),
-    val batchSize: Int = 10
+    protected val concurrency: Concurrency = Concurrency.Fixed(1),
+    protected val batchSize: Int = 10
 ) {
     companion object {
         const val TAG = "BatchProcessor"
@@ -32,13 +32,13 @@ abstract class BatchProcessor<Input, Output>(
                 listener?.onComplete(processorResult)
                 return@withContext processorResult
             }
-
-            val memoryUtils = Memory(context.applicationContext, memoryOptions)
-
             listener?.onActive()
 
             for (batch in items.chunked(batchSize)) {
-                val currentConcurrency = memoryUtils.calculateConcurrencyLevel()
+                val currentConcurrency = when(concurrency){
+                    is Concurrency.Fixed -> concurrency.concurrency
+                    is Concurrency.Dynamic -> concurrency.calculateConcurrency()
+                }
                 val semaphore = Semaphore(currentConcurrency)
 
                 val deferredResults = batch.map { item ->
