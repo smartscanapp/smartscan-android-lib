@@ -13,8 +13,7 @@ class ConcurrencyController(
     context: Context,
     private val memoryOptions: MemoryOptions = MemoryOptions()
 ) {
-
-    private val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+    private val activityManager by lazy { context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager}
 
     fun calculateConcurrency(): Int {
         val freeMemory = getFreeMemory()
