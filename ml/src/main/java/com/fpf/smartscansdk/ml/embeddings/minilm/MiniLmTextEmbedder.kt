@@ -1,7 +1,6 @@
 package com.fpf.smartscansdk.ml.embeddings.minilm
 
 import ai.onnxruntime.OnnxTensor
-import android.content.Context
 import com.fpf.smartscansdk.core.SmartScanException
 import com.fpf.smartscansdk.core.copyFloatBuffer
 import com.fpf.smartscansdk.core.embeddings.TextEmbeddingProvider
@@ -15,7 +14,6 @@ import java.nio.LongBuffer
 import kotlin.collections.toLongArray
 
 class MiniLMTextEmbedder(
-    context: Context,
     modelSource: ModelAssetSource,
     vocabSource: ModelAssetSource,
     configSource: ModelAssetSource,
@@ -23,13 +21,13 @@ class MiniLMTextEmbedder(
     ) : TextEmbeddingProvider {
 
     private val model: OnnxModel = when(modelSource) {
-        is ModelAssetSource.Resource -> OnnxModel(ResourceLoader(context.resources, modelSource.resId))
+        is ModelAssetSource.Resource -> OnnxModel(ResourceLoader(modelSource.resources, modelSource.resId))
         is ModelAssetSource.LocalFile -> OnnxModel(FileLoader(modelSource.file))
     }
 
     private val tokenizer: MiniLmTokenizer = when {
         vocabSource is ModelAssetSource.Resource && configSource is ModelAssetSource.Resource ->
-            MiniLmTokenizer.load(context, vocabSource.resId, configSource.resId)
+            MiniLmTokenizer.load(vocabSource.resources, vocabSource.resId, configSource.resId)
 
         vocabSource is ModelAssetSource.LocalFile && configSource is ModelAssetSource.LocalFile ->
             MiniLmTokenizer.load(vocabSource.file, configSource.file)

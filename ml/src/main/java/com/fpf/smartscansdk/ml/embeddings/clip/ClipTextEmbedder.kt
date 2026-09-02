@@ -1,7 +1,6 @@
 package com.fpf.smartscansdk.ml.embeddings.clip
 
 import ai.onnxruntime.OnnxTensor
-import android.content.Context
 import com.fpf.smartscansdk.core.SmartScanException
 import com.fpf.smartscansdk.core.copyFloatBuffer
 import com.fpf.smartscansdk.core.embeddings.TextEmbeddingProvider
@@ -14,20 +13,19 @@ import kotlinx.coroutines.*
 import java.nio.LongBuffer
 
 class ClipTextEmbedder(
-    context: Context,
     modelSource: ModelAssetSource,
     vocabSource: ModelAssetSource,
     mergesSource: ModelAssetSource,
     ) : TextEmbeddingProvider {
 
     private val model: OnnxModel = when(modelSource) {
-        is ModelAssetSource.Resource -> OnnxModel(ResourceLoader(context.resources, modelSource.resId))
+        is ModelAssetSource.Resource -> OnnxModel(ResourceLoader(modelSource.resources, modelSource.resId))
         is ModelAssetSource.LocalFile -> OnnxModel(FileLoader(modelSource.file))
     }
 
     private val tokenizer: ClipTokenizer = when {
         vocabSource is ModelAssetSource.Resource && mergesSource is ModelAssetSource.Resource ->
-            ClipTokenizer.load(context, vocabSource.resId, mergesSource.resId)
+            ClipTokenizer.load(vocabSource.resources, vocabSource.resId, mergesSource.resId)
 
         vocabSource is ModelAssetSource.LocalFile && mergesSource is ModelAssetSource.LocalFile ->
             ClipTokenizer.load(vocabSource.file, mergesSource.file)
