@@ -42,12 +42,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlin {
-        compilerOptions {
-            jvmTarget = JvmTarget.JVM_17
-        }
-    }
-
     lint {
         targetSdk = 34
     }
@@ -69,6 +63,12 @@ android {
 
     ndkVersion = "27.0.12077973"
 
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = JvmTarget.JVM_17
+    }
 }
 
 java {
