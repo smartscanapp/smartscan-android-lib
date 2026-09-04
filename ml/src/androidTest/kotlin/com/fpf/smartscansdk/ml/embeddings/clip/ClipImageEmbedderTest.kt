@@ -6,6 +6,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import androidx.test.core.app.ApplicationProvider
 import com.fpf.smartscansdk.core.embeddings.embedBatch
+import com.fpf.smartscansdk.core.processors.Concurrency
 import com.fpf.smartscansdk.ml.embeddings.clip.ClipImageEmbedder
 import com.fpf.smartscansdk.ml.models.ModelAssetSource
 import com.fpf.smartscansdk.ml.models.OnnxModel
@@ -48,7 +49,7 @@ class ClipImageEmbedderInstrumentedTest {
 
     @Test
     fun modelInitializationTest() = runBlocking {
-        val embedder = ClipImageEmbedder(context, ModelAssetSource.Resource(0))
+        val embedder = ClipImageEmbedder( ModelAssetSource.Resource(context.resources, 0))
 
         // replace private model with a mock
         val mockModel = mockk<OnnxModel>(relaxed = true)
@@ -67,7 +68,7 @@ class ClipImageEmbedderInstrumentedTest {
 
     @Test
     fun embeddingTest() = runBlocking {
-        val embedder = ClipImageEmbedder(context, ModelAssetSource.Resource(0))
+        val embedder = ClipImageEmbedder(ModelAssetSource.Resource(context.resources, 0))
 
         // mock internal model
         val mockModel = mockk<OnnxModel>(relaxed = true)
@@ -107,7 +108,7 @@ class ClipImageEmbedderInstrumentedTest {
 
     @Test
     fun batchEmbeddingTest() = runBlocking {
-        val embedder = ClipImageEmbedder(context, ModelAssetSource.Resource(0))
+        val embedder = ClipImageEmbedder(ModelAssetSource.Resource(context.resources, 0))
 
         val mockModel = mockk<OnnxModel>(relaxed = true)
 
@@ -136,11 +137,7 @@ class ClipImageEmbedderInstrumentedTest {
         val bmp1 = Bitmap.createBitmap(IMAGE_SIZE_X, IMAGE_SIZE_Y, Bitmap.Config.ARGB_8888)
         val bmp2 = Bitmap.createBitmap(IMAGE_SIZE_X, IMAGE_SIZE_Y, Bitmap.Config.ARGB_8888)
 
-        val results = embedBatch(
-            context.applicationContext,
-            embedder,
-            listOf(bmp1, bmp2)
-        )
+        val results = embedBatch(embedder, listOf(bmp1, bmp2), concurrency = Concurrency.Fixed(4))
 
         assertEquals(2, results.size)
         assertEquals(embedder.embeddingDim, results[0].size)

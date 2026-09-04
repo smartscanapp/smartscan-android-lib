@@ -1,6 +1,7 @@
 package com.fpf.smartscansdk.ml.embeddings.minilm
 
 import android.content.Context
+import android.content.res.Resources
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.File
@@ -33,10 +34,10 @@ internal class MiniLmTokenizer(
             )
         }
 
-        fun load(context: Context, vocabResId: Int, configResId: Int): MiniLmTokenizer {
+        fun load(resources: Resources, vocabResId: Int, configResId: Int): MiniLmTokenizer {
             return loadFromSources(
-                context.resources.openRawResource(vocabResId).bufferedReader(),
-                InputStreamReader(context.resources.openRawResource(configResId), "UTF-8").buffered()
+                resources.openRawResource(vocabResId).bufferedReader(),
+                InputStreamReader(resources.openRawResource(configResId), "UTF-8").buffered()
             )
         }
         fun load(vocabFile: File, configFile: File): MiniLmTokenizer {

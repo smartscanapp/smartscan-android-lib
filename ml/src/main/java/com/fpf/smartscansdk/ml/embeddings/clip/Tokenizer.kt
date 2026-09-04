@@ -1,6 +1,6 @@
 package com.fpf.smartscansdk.ml.embeddings.clip
 
-import android.content.Context
+import android.content.res.Resources
 import android.util.JsonReader
 import java.io.BufferedReader
 import java.io.File
@@ -13,8 +13,7 @@ internal class ClipTokenizer(
 ) {
         companion object {
 
-            fun load(context: Context, vocabResId: Int, mergesResId: Int): ClipTokenizer {
-                val resources = context.resources
+            fun load(resources: Resources, vocabResId: Int, mergesResId: Int): ClipTokenizer {
                 val encoder = readEncoder(resources.openRawResource(vocabResId))
                 val bpeRanks = readBpeRanks(resources.openRawResource(mergesResId))
                 return ClipTokenizer(encoder, bpeRanks)

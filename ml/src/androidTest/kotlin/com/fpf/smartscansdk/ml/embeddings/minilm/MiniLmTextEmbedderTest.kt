@@ -5,6 +5,7 @@ import ai.onnxruntime.OrtEnvironment
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.fpf.smartscansdk.core.embeddings.embedBatch
+import com.fpf.smartscansdk.core.processors.Concurrency
 import com.fpf.smartscansdk.ml.embeddings.minilm.MiniLMTextEmbedder
 import com.fpf.smartscansdk.ml.embeddings.minilm.MiniLmTokenizer
 import com.fpf.smartscansdk.ml.models.ModelAssetSource
@@ -24,6 +25,12 @@ import java.nio.LongBuffer
 class MiniLmTextEmbedderTest {
     private lateinit var context: Context
 
+    private fun getEmbedder(): MiniLMTextEmbedder = MiniLMTextEmbedder(
+        ModelAssetSource.Resource(context.resources, 0),
+        ModelAssetSource.Resource(context.resources, 1),
+        ModelAssetSource.Resource(context.resources, 2)
+    )
+
     @Before
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
@@ -42,12 +49,7 @@ class MiniLmTextEmbedderTest {
 
     @Test
     fun modelInitializationTest() = runBlocking {
-        val embedder = MiniLMTextEmbedder(
-            context,
-            ModelAssetSource.Resource(0),
-            ModelAssetSource.Resource(1),
-            ModelAssetSource.Resource(2)
-        )
+        val embedder = getEmbedder()
         val mockModel = mockk<OnnxModel>(relaxed = true)
 
         coEvery { mockModel.loadModel() } answers { every { mockModel.isLoaded() } returns true }
@@ -63,12 +65,7 @@ class MiniLmTextEmbedderTest {
 
     @Test
     fun embeddingTest() = runBlocking {
-        val embedder = MiniLMTextEmbedder(
-            context,
-            ModelAssetSource.Resource(0),
-            ModelAssetSource.Resource(1),
-            ModelAssetSource.Resource(2)
-        )
+        val embedder = getEmbedder()
         val mockModel = mockk<OnnxModel>(relaxed = true)
         val env = OrtEnvironment.getEnvironment()
         every { mockModel.isLoaded() } returns true
@@ -100,13 +97,7 @@ class MiniLmTextEmbedderTest {
 
     @Test
     fun batchEmbeddingTest() = runBlocking {
-        val embedder = MiniLMTextEmbedder(
-            context,
-            ModelAssetSource.Resource(0),
-            ModelAssetSource.Resource(1),
-            ModelAssetSource.Resource(2)
-        )
-
+        val embedder = getEmbedder()
         val mockModel = mockk<OnnxModel>(relaxed = true)
         val env = OrtEnvironment.getEnvironment()
 
@@ -131,24 +122,14 @@ class MiniLmTextEmbedderTest {
         field.set(embedder, mockModel)
 
         val texts = listOf("Hello", "World")
-        val results = embedBatch(
-            context.applicationContext,
-            embedder,
-            texts
-        )
-
+        val results = embedBatch(embedder, texts, concurrency = Concurrency.Fixed(4))
         assertEquals(2, results.size)
         assertEquals(embedder.embeddingDim, results[0].size)
     }
 
     @Test
     fun maxTokenHandlingTest() = runBlocking {
-        val embedder = MiniLMTextEmbedder(
-            context,
-            ModelAssetSource.Resource(0),
-            ModelAssetSource.Resource(1),
-            ModelAssetSource.Resource(2)
-        )
+        val embedder = getEmbedder()
         val mockModel = mockk<OnnxModel>(relaxed = true)
         val env = OrtEnvironment.getEnvironment()
 

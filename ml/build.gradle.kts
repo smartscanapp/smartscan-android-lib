@@ -1,17 +1,23 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id("com.android.library")
-    id("org.jetbrains.kotlin.android")
     id("maven-publish")
 }
 
 android {
     namespace = "com.fpf.smartscansdk.ml"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 28
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
 
+    publishing {
+        singleVariant("release"){
+            withSourcesJar()
+        }
     }
 
     packaging {
@@ -34,10 +40,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     lint {
         targetSdk = 34
     }
@@ -48,6 +50,12 @@ android {
                 it.useJUnitPlatform()
             }
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = JvmTarget.JVM_17
     }
 }
 

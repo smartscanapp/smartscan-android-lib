@@ -1,7 +1,6 @@
 package com.fpf.smartscansdk.ml.embeddings.dino
 
 import ai.onnxruntime.OnnxTensor
-import android.content.Context
 import android.graphics.Bitmap
 import androidx.core.graphics.get
 import com.fpf.smartscansdk.core.SmartScanException
@@ -19,10 +18,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 
-class DinoV2SmallImageEmbedder(
-    context: Context,
-    modelSource: ModelAssetSource,
-) : ImageEmbeddingProvider {
+class DinoV2SmallImageEmbedder(modelSource: ModelAssetSource) : ImageEmbeddingProvider {
 
     companion object  {
         const val DIM_BATCH_SIZE = 1
@@ -33,7 +29,7 @@ class DinoV2SmallImageEmbedder(
         val STD=floatArrayOf(0.229f, 0.224f, 0.225f)
     }
     private val model: OnnxModel = when(modelSource) {
-        is ModelAssetSource.Resource -> OnnxModel(ResourceLoader(context.resources, modelSource.resId))
+        is ModelAssetSource.Resource -> OnnxModel(ResourceLoader(modelSource.resources, modelSource.resId))
         is ModelAssetSource.LocalFile -> OnnxModel(FileLoader(modelSource.file))
     }
 

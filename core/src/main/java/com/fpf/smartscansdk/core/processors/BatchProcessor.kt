@@ -1,7 +1,5 @@
 package com.fpf.smartscansdk.core.processors
 
-import android.content.Context
-import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -11,14 +9,10 @@ import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicInteger
 
 abstract class BatchProcessor<Input, Output>(
-    private val context: Context,
     protected val listener: ProcessorListener<Input>? = null,
-    private val memoryOptions: MemoryOptions = MemoryOptions(),
-    val batchSize: Int = 10
+    protected val concurrency: Concurrency = Concurrency.Fixed(1),
+    protected val batchSize: Int = 10
 ) {
-    companion object {
-        const val TAG = "BatchProcessor"
-    }
 
     suspend fun run(items: List<Input>): ProcessorResult = withContext(Dispatchers.IO) {
         val processedCount = AtomicInteger(0)
@@ -27,32 +21,31 @@ abstract class BatchProcessor<Input, Output>(
 
         try {
             if (items.isEmpty()) {
-                Log.w(TAG, "No items to process.")
                 val processorResult = ProcessorResult.Success()
-                listener?.onComplete(context.applicationContext, processorResult)
+                listener?.onComplete(processorResult)
                 return@withContext processorResult
             }
-
-            val memoryUtils = Memory(context.applicationContext, memoryOptions)
-
-            listener?.onActive(context.applicationContext)
+            listener?.onActive()
 
             for (batch in items.chunked(batchSize)) {
-                val currentConcurrency = memoryUtils.calculateConcurrencyLevel()
+                val currentConcurrency = when(concurrency){
+                    is Concurrency.Fixed -> concurrency.concurrency
+                    is Concurrency.Dynamic -> concurrency.calculateConcurrency()
+                }
                 val semaphore = Semaphore(currentConcurrency)
 
                 val deferredResults = batch.map { item ->
                     async {
                         semaphore.withPermit {
                             try {
-                                val output = onProcess(context.applicationContext, item)
+                                val output = onProcess(item)
                                 item to Result.success(output)
                             } catch (e: Exception) {
                                 item to Result.failure(e)
                             }finally {
                                 val current = processedCount.incrementAndGet()
                                 val progress = current.toFloat() / items.size
-                                listener?.onProgress(context.applicationContext, progress)
+                                listener?.onProgress(progress)
                             }
                         }
                     }
@@ -67,7 +60,7 @@ abstract class BatchProcessor<Input, Output>(
                             successfulResults += result.second.getOrThrow()
                         } else {
                             val error = result.second.exceptionOrNull() as Exception
-                            listener?.onError(context.applicationContext, error, result.first)
+                            listener?.onError(error, result.first)
                         }
                     }
                 } catch (e: Exception) {
@@ -79,17 +72,17 @@ abstract class BatchProcessor<Input, Output>(
                 }
 
                 totalSuccess += successfulResults.size
-                onBatchComplete(context.applicationContext, successfulResults)
+                onBatchComplete(successfulResults)
             }
 
             val endTime = System.currentTimeMillis()
             val processorResult = ProcessorResult.Success(totalSuccess, timeElapsed = endTime - startTime)
 
-            listener?.onComplete(context.applicationContext, processorResult)
+            listener?.onComplete(processorResult)
             processorResult
         }
         catch (e: CancellationException) {
-            listener?.onCancel(context.applicationContext)
+            listener?.onCancel()
             throw e
         }
         catch (e: Exception) {
@@ -98,18 +91,14 @@ abstract class BatchProcessor<Input, Output>(
                 timeElapsed = System.currentTimeMillis() - startTime,
                 error = e
             )
-            listener?.onFail(context.applicationContext, processorResult)
+            listener?.onFail(processorResult)
             processorResult
         }
     }
 
-    // Subclasses must implement this
-    protected abstract suspend fun onProcess(context: Context, item: Input): Output
+    protected abstract suspend fun onProcess(item: Input): Output
 
-    // Forces all SDK users to consciously handle batch events rather than optionally relying on listeners.
-    // This can prevent subtle bugs where batch-level behavior is forgotten.
-    // Subclasses can optionally delegate to listener (client app) by simply calling listener.onBatchComplete in implementation
-    protected abstract suspend fun onBatchComplete(context: Context, batch: List<Output>)
+    protected abstract suspend fun onBatchComplete(batch: List<Output>)
 
 }
 

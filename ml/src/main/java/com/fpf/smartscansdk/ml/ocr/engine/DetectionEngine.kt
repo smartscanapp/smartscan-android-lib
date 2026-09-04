@@ -2,7 +2,6 @@ package com.fpf.smartscansdk.ml.ocr.engine
 
 
 import ai.onnxruntime.OnnxTensor
-import android.content.Context
 import android.graphics.Bitmap
 import com.fpf.smartscansdk.core.SmartScanException
 import com.fpf.smartscansdk.core.copyFloatBuffer
@@ -18,7 +17,6 @@ import com.fpf.smartscansdk.ml.ocr.preprocess.DetPreprocessor
 import java.nio.FloatBuffer
 
 internal class DetectionEngine(
-    context: Context,
     modelSource: ModelAssetSource,
     private val config: PaddleOCRConfig,
 ) {
@@ -32,7 +30,7 @@ internal class DetectionEngine(
     )
 
     private val model: OnnxModel = when(modelSource) {
-        is ModelAssetSource.Resource -> OnnxModel(ResourceLoader(context.resources, modelSource.resId))
+        is ModelAssetSource.Resource -> OnnxModel(ResourceLoader(modelSource.resources, modelSource.resId))
         is ModelAssetSource.LocalFile -> OnnxModel(FileLoader(modelSource.file))
     }
 

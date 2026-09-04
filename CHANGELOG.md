@@ -1,3 +1,14 @@
+## v3.1.0 - 04/09/2026
+
+### Added
+* Added `Concurrency` sealed interface
+
+### Changed
+* Removed context usage from `BatchProcessor` and `ProcessorListener`
+* Removed context usage from all embedders, detectors, and ocr model wrappers.
+* Replace `Memory` class with `ConcurrencyController`
+* Included `Resources` in `ModelAssetSource.Resource`
+
 ## v3.0.1 - 23/08/2026
 
 ### Added

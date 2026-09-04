@@ -1,7 +1,6 @@
 package com.fpf.smartscansdk.ml.embeddings.inception
 
 import ai.onnxruntime.OnnxTensor
-import android.content.Context
 import android.graphics.Bitmap
 import com.fpf.smartscansdk.core.SmartScanException
 import com.fpf.smartscansdk.core.copyFloatBuffer
@@ -16,12 +15,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.nio.FloatBuffer
 
-class InceptionResnetFaceEmbedder(
-    context: Context,
-    modelSource: ModelAssetSource,
-) : ImageEmbeddingProvider {
+class InceptionResnetFaceEmbedder(modelSource: ModelAssetSource) : ImageEmbeddingProvider {
     private val model: OnnxModel = when(modelSource) {
-        is ModelAssetSource.Resource -> OnnxModel(ResourceLoader(context.resources, modelSource.resId))
+        is ModelAssetSource.Resource -> OnnxModel(ResourceLoader(modelSource.resources, modelSource.resId))
         is ModelAssetSource.LocalFile -> OnnxModel(FileLoader(modelSource.file))
     }
 

@@ -163,13 +163,13 @@ object ModelManager {
                 val modelFile = File(modelDir, modelInfo.resourceFiles!![0] )
                 val vocabFile = File(modelDir, modelInfo.resourceFiles[1] )
                 val configFile = File(modelDir, modelInfo.resourceFiles[2] )
-                MiniLMTextEmbedder(context, modelSource = ModelAssetSource.LocalFile(modelFile), vocabSource = ModelAssetSource.LocalFile(vocabFile), configSource = ModelAssetSource.LocalFile(configFile))
+                MiniLMTextEmbedder( modelSource = ModelAssetSource.LocalFile(modelFile), vocabSource = ModelAssetSource.LocalFile(vocabFile), configSource = ModelAssetSource.LocalFile(configFile))
             }
             ModelName.CLIP_VIT_B_32_TEXT -> {
                 val modelFile = File(modelDir, modelInfo.resourceFiles!![0] )
                 val vocabFile = File(modelDir, modelInfo.resourceFiles[1] )
                 val mergesFile = File(modelDir, modelInfo.resourceFiles[2] )
-                ClipTextEmbedder(context, modelSource = ModelAssetSource.LocalFile(modelFile), vocabSource = ModelAssetSource.LocalFile(vocabFile), mergesSource = ModelAssetSource.LocalFile(mergesFile))
+                ClipTextEmbedder( modelSource = ModelAssetSource.LocalFile(modelFile), vocabSource = ModelAssetSource.LocalFile(vocabFile), mergesSource = ModelAssetSource.LocalFile(mergesFile))
             }
             else -> throw SmartScanException.InvalidModelType("Expected model type ${ModelType.TEXT_ENCODER}, but got $modelInfo.type")
         }
@@ -182,13 +182,13 @@ object ModelManager {
 
         return when(modelName){
             ModelName.DINOV2_SMALL -> {
-                DinoV2SmallImageEmbedder(context, modelSource = ModelAssetSource.LocalFile(modelFile))
+                DinoV2SmallImageEmbedder( modelSource = ModelAssetSource.LocalFile(modelFile))
             }
             ModelName.CLIP_VIT_B_32_IMAGE -> {
-                ClipImageEmbedder(context, modelSource = ModelAssetSource.LocalFile(modelFile))
+                ClipImageEmbedder( modelSource = ModelAssetSource.LocalFile(modelFile))
             }
             ModelName.INCEPTION_RESNET_V1 -> {
-                InceptionResnetFaceEmbedder(context, modelSource = ModelAssetSource.LocalFile(modelFile))
+                InceptionResnetFaceEmbedder( modelSource = ModelAssetSource.LocalFile(modelFile))
             }
             else -> throw SmartScanException.InvalidModelType("Expected model type ${ModelType.IMAGE_ENCODER}, but got $modelInfo.type")
         }
@@ -201,7 +201,7 @@ object ModelManager {
 
         return when(modelName){
             ModelName.ULTRA_LIGHT_FACE_DETECTOR -> {
-                FaceDetector(context, modelSource = ModelAssetSource.LocalFile(modelFile))
+                FaceDetector(modelSource = ModelAssetSource.LocalFile(modelFile))
             }
             else -> throw SmartScanException.InvalidModelType("Expected model type ${ModelType.OBJECT_DETECTOR}, but got $modelInfo.type")
         }

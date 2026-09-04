@@ -18,10 +18,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 
-class ClipImageEmbedder(
-    context: Context,
-    modelSource: ModelAssetSource,
-) : ImageEmbeddingProvider {
+class ClipImageEmbedder(modelSource: ModelAssetSource) : ImageEmbeddingProvider {
     companion object {
         const val DIM_BATCH_SIZE = 1
         const val DIM_PIXEL_SIZE = 3
@@ -31,7 +28,7 @@ class ClipImageEmbedder(
         val STD  = floatArrayOf(0.26862955f, 0.2613026f, 0.2757771f)
     }
     private val model: OnnxModel = when(modelSource) {
-        is ModelAssetSource.Resource -> OnnxModel(ResourceLoader(context.resources, modelSource.resId))
+        is ModelAssetSource.Resource -> OnnxModel(ResourceLoader(modelSource.resources, modelSource.resId))
         is ModelAssetSource.LocalFile -> OnnxModel(FileLoader(modelSource.file))
     }
 
