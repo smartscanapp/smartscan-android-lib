@@ -9,6 +9,8 @@
 * Replace `Memory` class with `ConcurrencyController`
 * Included `Resources` in `ModelAssetSource.Resource`
 
+___
+
 ## v3.0.1 - 23/08/2026
 
 ### Added
