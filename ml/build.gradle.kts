@@ -59,13 +59,6 @@ kotlin {
     }
 }
 
-java {
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(17))
-        vendor = JvmVendorSpec.ADOPTIUM
-    }
-}
-
 dependencies {
     api(project(":core"))
     implementation(libs.androidx.documentfile)

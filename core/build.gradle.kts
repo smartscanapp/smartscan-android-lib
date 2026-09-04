@@ -71,13 +71,6 @@ kotlin {
     }
 }
 
-java {
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(17))
-        vendor = JvmVendorSpec.ADOPTIUM
-    }
-}
-
 dependencies {
     // Expose core-ktx to consumers of core or extensions
     api(libs.androidx.core.ktx)
